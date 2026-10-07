@@ -1,0 +1,5 @@
+.pio/
+.vscode/
+# Google service-account key (added in the Sheets step) must never be committed
+include/secrets.h
+*.json
