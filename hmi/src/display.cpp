@@ -91,7 +91,7 @@ public:
       cfg.pin_rst = -1;
       cfg.bus_shared = false;
       cfg.offset_rotation = 0;
-      cfg.i2c_port = I2C_NUM_1;
+      cfg.i2c_port = 1;  // I2C peripheral 1 (Wire uses 0)
       cfg.pin_sda = (gpio_num_t)PIN_I2C_SDA;
       cfg.pin_scl = (gpio_num_t)PIN_I2C_SCL;
       cfg.freq = 400000;
