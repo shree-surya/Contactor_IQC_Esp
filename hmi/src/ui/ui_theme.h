@@ -28,6 +28,8 @@
 #define COL_GREEN     lv_color_hex(0x1F9D55)
 #define COL_RED       lv_color_hex(0xE5484D)
 #define COL_WARN_TXT  lv_color_hex(0xFF6B4A)  // reference: .warn
+#define COL_BUSY_TXT  lv_color_hex(0xB08900)  // "in progress" text on light backgrounds
+#define COL_LED_OK    lv_color_hex(0x3DDC84)  // status icons on the black bar
 
 // Roles
 #define COL_PRIMARY   COL_ACCENT

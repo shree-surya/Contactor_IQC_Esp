@@ -256,11 +256,7 @@ void ui_show_admin() {
   ui_btn(f, LV_SYMBOL_LEFT " BACK", COL_NEUTRAL, 200, BTN_H, back_cb, nullptr);
 
   // Full-width text keyboard for the WiFi fields, shown on demand
-  s_kb = lv_keyboard_create(scr);
-  lv_obj_set_size(s_kb, SCR_W, 250);
-  lv_obj_align(s_kb, LV_ALIGN_BOTTOM_MID, 0, 0);
-  lv_obj_set_style_text_font(s_kb, FONT_M, 0);
-  lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+  s_kb = ui_text_keyboard(scr, 250);
 
   timer_cb(nullptr);
   s_timer = lv_timer_create(timer_cb, 300, nullptr);

@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "../app_data.h"
 #include "../rig.h"
+#include "../gsheets.h"
 
 // Table layout: rows = parameters, columns = channels.
 // The top-left cell shows the batch state (READY / RUNNING / DONE / STOPPED).
@@ -81,6 +82,7 @@ static void value_cell(int row, int col, StepState s, bool measured, float val, 
 }
 
 static void refresh() {
+  if (g_app.modelIdx < 0) return;  // batch finished, waiting for the upload popup
   const ModelSpec &m = g_models[g_app.modelIdx];
   bool running = rig_running();
   int pass = 0, failed = 0, aborted = 0;
@@ -166,6 +168,80 @@ static void stop_cb(lv_event_t *) {
   refresh();
 }
 
+// ---------------------------------------------------------------------------
+// NEXT BATCH: wait for this batch's rows to reach the Google Sheet, then go
+// back to the model / serial page. Offline, rows stay queued on the panel.
+// ---------------------------------------------------------------------------
+
+static const uint32_t SYNC_TIMEOUT_MS = 20000;
+static lv_obj_t *s_sync_ov = nullptr, *s_sync_lbl = nullptr, *s_sync_spin = nullptr;
+static uint32_t s_sync_t0 = 0;
+static int s_sync_phase = 0;  // 0 = uploading, 1 = success shown, 2 = offline note shown
+
+static void sync_msg(const char *txt, lv_color_t color) {
+  lv_label_set_text(s_sync_lbl, txt);
+  lv_obj_set_style_text_color(s_sync_lbl, color, 0);
+  lv_obj_add_flag(s_sync_spin, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_center(s_sync_lbl);
+  s_sync_t0 = millis();
+}
+
+static void sync_timer_cb(lv_timer_t *t) {
+  uint32_t el = millis() - s_sync_t0;
+  if (s_sync_phase == 0) {
+    if (!gsheets_configured()) {
+      sync_msg("Results saved on the panel.\nGoogle Sheet is not configured.", COL_MUTED);
+      s_sync_phase = 2;
+    } else if (gsheets_pending_count() == 0) {
+      sync_msg(LV_SYMBOL_OK "  Upload successful", COL_GREEN);
+      s_sync_phase = 1;
+    } else if (el > SYNC_TIMEOUT_MS) {
+      sync_msg(LV_SYMBOL_WARNING "  No connection.\nResults are saved on the panel\nand will upload automatically.", COL_WARN_TXT);
+      s_sync_phase = 2;
+    }
+    return;
+  }
+  if (el < (s_sync_phase == 1 ? 1200u : 3500u)) return;
+  lv_timer_del(t);
+  lv_obj_del(s_sync_ov);
+  s_sync_ov = nullptr;
+  ui_show_model();
+}
+
+static void show_sync_popup() {
+  s_sync_ov = lv_obj_create(lv_layer_top());
+  lv_obj_set_size(s_sync_ov, SCR_W, SCR_H);
+  lv_obj_set_style_bg_color(s_sync_ov, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(s_sync_ov, LV_OPA_50, 0);
+  lv_obj_set_style_radius(s_sync_ov, 0, 0);
+  lv_obj_set_style_border_width(s_sync_ov, 0, 0);
+  lv_obj_clear_flag(s_sync_ov, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *panel = lv_obj_create(s_sync_ov);
+  lv_obj_set_size(panel, 460, 230);
+  lv_obj_center(panel);
+  lv_obj_set_style_border_side(panel, LV_BORDER_SIDE_TOP, 0);
+  lv_obj_set_style_border_width(panel, 4, 0);
+  lv_obj_set_style_border_color(panel, COL_ACCENT, 0);
+  lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+
+  s_sync_spin = lv_spinner_create(panel, 1000, 60);
+  lv_obj_set_size(s_sync_spin, 70, 70);
+  lv_obj_align(s_sync_spin, LV_ALIGN_TOP_MID, 0, 6);
+  lv_obj_set_style_arc_color(s_sync_spin, COL_ACCENT, LV_PART_INDICATOR);
+
+  s_sync_lbl = lv_label_create(panel);
+  lv_label_set_text(s_sync_lbl, "Syncing with Google Sheet...");
+  lv_obj_set_style_text_font(s_sync_lbl, FONT_M, 0);
+  lv_obj_set_style_text_align(s_sync_lbl, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_align(s_sync_lbl, LV_ALIGN_BOTTOM_MID, 0, -10);
+
+  s_sync_phase = 0;
+  s_sync_t0 = millis();
+  gsheets_flush_now();
+  lv_timer_create(sync_timer_cb, 250, nullptr);
+}
+
 static void next_cb(lv_event_t *) {
   // Keep the operator; the model, serials and ticks are chosen again for every batch
   g_app.modelIdx = -1;
@@ -175,7 +251,8 @@ static void next_cb(lv_event_t *) {
   }
   bool none[NUM_CH] = {false};
   rig_reset(none);
-  ui_show_model();
+  ui_btn_set_enabled(s_btn_next, false);
+  show_sync_popup();
 }
 
 void ui_show_test() {

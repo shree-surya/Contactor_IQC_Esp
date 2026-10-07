@@ -25,20 +25,26 @@ struct ChannelView {
   char failStep[24];
 };
 
-// One row of the "Results" sheet. Untested values are "-NA-"; "NA" means the
-// model has no limit for that parameter (measured but not judged).
-struct ResultRow {
-  char serial[SERIAL_MAX_LEN + 1];
-  char op[NAME_MAX_LEN + 1];
-  char model[NAME_MAX_LEN + 1];
-  uint8_t ch, cycle, cycles;
-  char cycleRes[10];
+// Results of one cycle. Untested values are "-NA-"; "NA" means the model has
+// no limit for that parameter (measured but not judged).
+struct CycleResult {
   char open[6];
   char inrushA[8], inrushPF[6];
   char contA[8], contPF[6];
   char contin[6];
   char release[6];
+};
+
+// One row of the "Results" sheet = one contactor (all its cycles side by side).
+struct ResultRow {
+  char serial[SERIAL_MAX_LEN + 1];
+  char op[NAME_MAX_LEN + 1];
+  char model[NAME_MAX_LEN + 1];
+  uint8_t ch;
+  uint8_t cycles;  // cycles configured for the model (columns written)
+  char overall[10];  // PASS / FAIL / ABORTED
   char failStep[24];
+  CycleResult cyc[MAX_CYCLES];
 };
 
 void rig_begin();

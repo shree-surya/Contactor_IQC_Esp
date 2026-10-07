@@ -19,6 +19,11 @@ void gsheets_begin();  // mount flash, load cached specs/operators, start backgr
 
 void gsheets_enqueue(const ResultRow &row);
 void gsheets_request_sync();  // re-read Specs + Operators
+void gsheets_flush_now();     // upload queued rows now (skip the retry wait)
+
+enum GsState { GS_OFF, GS_NO_WIFI, GS_SYNCING, GS_SYNCED, GS_ERROR };
+GsState gsheets_state();      // Specs/Operators sync state, for the login screen
+bool gsheets_has_cache();     // a synced copy of Specs/Operators is in flash
 
 // Freshly synced specs/operators are held back until the UI says it is safe
 // to swap them in (never in the middle of a test).

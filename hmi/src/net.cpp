@@ -14,6 +14,7 @@
 #endif
 
 static const char *PREF_NS = "iqc_net";
+static char s_ssid[40] = "";  // SSID in use (saved one, or the factory default)
 
 void net_begin() {
   WiFi.mode(WIFI_STA);
@@ -25,6 +26,7 @@ void net_begin() {
   String pass = prefs.getString("pass", WIFI_PASS);
   prefs.end();
 
+  strlcpy(s_ssid, ssid.c_str(), sizeof(s_ssid));
   if (ssid.length()) WiFi.begin(ssid.c_str(), pass.c_str());
 }
 
@@ -35,11 +37,17 @@ void net_save_and_connect(const char *ssid, const char *pass) {
   prefs.putString("pass", pass);
   prefs.end();
 
+  strlcpy(s_ssid, ssid, sizeof(s_ssid));
   WiFi.disconnect();
   WiFi.begin(ssid, pass);
 }
 
 bool net_connected() { return WiFi.status() == WL_CONNECTED; }
+
+NetState net_state() {
+  if (net_connected()) return NET_CONNECTED;
+  return s_ssid[0] ? NET_CONNECTING : NET_NO_CONFIG;
+}
 
 int net_rssi() { return net_connected() ? WiFi.RSSI() : 0; }
 

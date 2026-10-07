@@ -25,6 +25,7 @@ void ui_show_admin();
 
 // --- shared helpers (ui_common.cpp) ---
 lv_obj_t *ui_screen_create();
+lv_obj_t *ui_text_keyboard(lv_obj_t *parent, lv_coord_t h);  // hidden, number row on top
 void ui_load(lv_obj_t *scr);
 lv_obj_t *ui_header(lv_obj_t *scr, const char *title);
 lv_obj_t *ui_footer(lv_obj_t *scr);

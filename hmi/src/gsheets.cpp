@@ -29,8 +29,8 @@
 #define GSA_PRIVATE_KEY ""
 #endif
 
-static const char *QUEUE_FILE = "/queue.txt";
-static const char *QUEUE_TMP = "/queue.tmp";
+static const char *QUEUE_FILE = "/queue_v2.txt";  // v2 = one row per unit
+static const char *QUEUE_TMP = "/queue_v2.tmp";
 static const char *CACHE_FILE = "/sheet_cache.json";
 static const char *TZ_INDIA = "IST-5:30";
 static const int UPLOAD_BATCH = 10;
@@ -39,6 +39,10 @@ static const uint32_t RETRY_MS = 30000;
 static SemaphoreHandle_t s_mtx;
 static int s_pending = 0;
 static bool s_syncReq = true;  // sync once after boot
+static bool s_syncedOnce = false;  // Specs/Operators read successfully since boot
+static bool s_syncErr = false;     // last sync attempt failed
+static bool s_hasCache = false;    // a synced copy exists in flash
+static uint32_t s_nextTry = 0;     // retry back-off
 static char s_status[64] = "Starting";
 static char s_lastSync[24] = "-";
 
@@ -283,6 +287,7 @@ static int parse_models(JsonArray rows, ModelSpec *out) {
     m.avgMs = cell_uint(row[7], m.avgMs);
     m.releaseMs = cell_uint(row[8], m.releaseMs);
     m.cycles = (uint8_t)cell_uint(row[9], m.cycles);
+    if (m.cycles > MAX_CYCLES) m.cycles = MAX_CYCLES;
     m.cycleGapMs = cell_uint(row[10], m.cycleGapMs);
     m.staggerMs = cell_uint(row[11], m.staggerMs);
     out[n++] = m;
@@ -335,6 +340,7 @@ static void load_cache() {
   int no = parse_operators(doc["operators"].as<JsonArray>(), ops, pass);
   app_data_set_models(models, nm);
   app_data_set_operators(ops, pass, no);
+  s_hasCache = nm > 0;
   strlcpy(s_lastSync, doc["synced"] | "-", sizeof(s_lastSync));
   Serial.printf("[sheets] cache loaded: %d models, %d operators (synced %s)\n", nm, no, s_lastSync);
 }
@@ -378,6 +384,9 @@ static bool do_sync() {
     }
     s_newOpCount = no;
     s_newData = true;
+    s_syncedOnce = true;
+    s_syncErr = false;
+    s_hasCache = true;
     strlcpy(s_lastSync, now, sizeof(s_lastSync));
   }
   save_cache(specRows, opRows);
@@ -389,30 +398,35 @@ static bool do_sync() {
 // Results queue (one JSON array per line in /queue.txt)
 // ---------------------------------------------------------------------------
 
+// Results row: S.No, Serial, Timestamp, Operator, Model, Channel, Overall,
+// Fail Step, then 7 columns per cycle (Open, Inrush A, Inrush P/F, Cont A,
+// Cont P/F, Continuity, Release). A leading ' makes Sheets keep the text
+// exactly as sent (no date/number guessing).
 void gsheets_enqueue(const ResultRow &r) {
-  char ts[24], cyc[12], ch[4];
+  char ts[24], ch[4];
   gsheets_now_str(ts, sizeof(ts));
-  snprintf(cyc, sizeof(cyc), "'%d/%d", r.cycle, r.cycles);  // ' stops Sheets reading 3/5 as a date
   snprintf(ch, sizeof(ch), "%d", r.ch);
 
   JsonDocument doc;
   JsonArray a = doc.to<JsonArray>();
   a.add("=ROW()-1");
-  a.add(String("'") + r.serial);  // keep leading zeros / letters as typed
-  a.add(ts);
+  a.add(String("'") + r.serial);
+  a.add(strcmp(ts, "NO TIME") == 0 ? String(ts) : String("'") + ts);  // NO TIME is replaced at upload
   a.add(r.op);
   a.add(r.model);
   a.add(ch);
-  a.add(cyc);
-  a.add(r.cycleRes);
-  a.add(r.open);
-  a.add(r.inrushA);
-  a.add(r.inrushPF);
-  a.add(r.contA);
-  a.add(r.contPF);
-  a.add(r.contin);
-  a.add(r.release);
+  a.add(r.overall);
   a.add(r.failStep);
+  for (int i = 0; i < r.cycles && i < MAX_CYCLES; i++) {
+    const CycleResult &c = r.cyc[i];
+    a.add(c.open);
+    a.add(c.inrushA);
+    a.add(c.inrushPF);
+    a.add(c.contA);
+    a.add(c.contPF);
+    a.add(c.contin);
+    a.add(c.release);
+  }
   String line;
   serializeJson(doc, line);
 
@@ -476,7 +490,7 @@ static bool upload_batch() {
 
   char now[24];
   gsheets_now_str(now, sizeof(now));
-  String offlineStamp = String(now) + "*";  // * = logged offline, this is the upload time
+  String offlineStamp = String("'") + now + "*";  // * = logged offline, this is the upload time
 
   JsonDocument body;
   JsonArray values = body["values"].to<JsonArray>();
@@ -509,7 +523,7 @@ static bool upload_batch() {
 
 static void task(void *) {
   bool ntpStarted = false;
-  uint32_t lastHttpTime = 0, nextTry = 0;
+  uint32_t lastHttpTime = 0;
 
   for (;;) {
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -534,7 +548,7 @@ static void task(void *) {
       set_status("Not configured (no secrets.h)");
       continue;
     }
-    if ((int32_t)(millis() - nextTry) < 0) continue;
+    if ((int32_t)(millis() - s_nextTry) < 0) continue;
 
     bool wantSync, haveRows;
     {
@@ -547,19 +561,26 @@ static void task(void *) {
       continue;
     }
     if (!get_token()) {
-      nextTry = millis() + RETRY_MS;
+      Lock l;
+      if (wantSync) s_syncErr = true;
+      s_nextTry = millis() + RETRY_MS;
       continue;
     }
     if (wantSync) {
-      if (do_sync()) {
-        Lock l;
+      bool ok = do_sync();
+      Lock l;
+      if (ok) {
         s_syncReq = false;
       } else {
-        nextTry = millis() + RETRY_MS;
+        s_syncErr = true;
+        s_nextTry = millis() + RETRY_MS;
         continue;
       }
     }
-    if (haveRows && !upload_batch()) nextTry = millis() + RETRY_MS;
+    if (haveRows && !upload_batch()) {
+      Lock l;
+      s_nextTry = millis() + RETRY_MS;
+    }
   }
 }
 
@@ -583,6 +604,26 @@ void gsheets_begin() {
 void gsheets_request_sync() {
   Lock l;
   s_syncReq = true;
+  s_nextTry = 0;
+}
+
+void gsheets_flush_now() {
+  Lock l;
+  s_nextTry = 0;
+}
+
+GsState gsheets_state() {
+  if (!GS_CONFIGURED) return GS_OFF;
+  if (WiFi.status() != WL_CONNECTED) return GS_NO_WIFI;
+  Lock l;
+  if (s_syncedOnce && !s_syncReq) return GS_SYNCED;
+  if (s_syncErr) return GS_ERROR;
+  return GS_SYNCING;
+}
+
+bool gsheets_has_cache() {
+  Lock l;
+  return s_hasCache;
 }
 
 bool gsheets_has_new_data() {

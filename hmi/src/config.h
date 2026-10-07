@@ -23,8 +23,11 @@
 // Current below this counts as "coil off" for the Open and Release checks.
 #define OFF_CURRENT_MAX_A 0.02f
 
-// Pending result rows kept in RAM until uploaded (moves to flash later).
-#define RESULT_QUEUE_LEN 64
+// Max cycles per unit (the Results sheet has columns for this many cycles)
+#define MAX_CYCLES 10
+
+// Finished units waiting in RAM until loop() moves them to the flash queue
+#define RESULT_QUEUE_LEN 10
 
 // CrowPanel 7" V3.0 shared I2C bus (touch controller + PCA9557 expander)
 #define PIN_I2C_SDA 19

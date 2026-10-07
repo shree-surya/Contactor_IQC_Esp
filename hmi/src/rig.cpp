@@ -49,7 +49,37 @@ static const char *pf_txt(StepState s) {
   }
 }
 
-static void push_row(int ch, const char *cycleRes, const char *failStep) {
+static CycleResult s_cyc[NUM_CH][MAX_CYCLES];
+
+static void fill_na(CycleResult &c) {
+  strlcpy(c.open, "-NA-", sizeof(c.open));
+  strlcpy(c.inrushA, "-NA-", sizeof(c.inrushA));
+  strlcpy(c.inrushPF, "-NA-", sizeof(c.inrushPF));
+  strlcpy(c.contA, "-NA-", sizeof(c.contA));
+  strlcpy(c.contPF, "-NA-", sizeof(c.contPF));
+  strlcpy(c.contin, "-NA-", sizeof(c.contin));
+  strlcpy(c.release, "-NA-", sizeof(c.release));
+}
+
+// Stores the current cycle of a channel (called when the cycle ends)
+static void record_cycle(int ch) {
+  const ChannelView &v = s_view[ch];
+  if (v.cycle == 0 || v.cycle > MAX_CYCLES) return;
+  CycleResult &c = s_cyc[ch][v.cycle - 1];
+  strlcpy(c.open, pf_txt(v.open), sizeof(c.open));
+  if (v.inrushMeasured) snprintf(c.inrushA, sizeof(c.inrushA), "%.2f", v.inrushA);
+  else strlcpy(c.inrushA, "-NA-", sizeof(c.inrushA));
+  if (v.inrush == ST_NA && v.inrushMeasured) strlcpy(c.inrushPF, "NA", sizeof(c.inrushPF));
+  else strlcpy(c.inrushPF, pf_txt(v.inrush), sizeof(c.inrushPF));
+  if (v.contMeasured) snprintf(c.contA, sizeof(c.contA), "%.3f", v.contA);
+  else strlcpy(c.contA, "-NA-", sizeof(c.contA));
+  strlcpy(c.contPF, pf_txt(v.cont), sizeof(c.contPF));
+  strlcpy(c.contin, pf_txt(v.contin), sizeof(c.contin));
+  strlcpy(c.release, pf_txt(v.release), sizeof(c.release));
+}
+
+// Queues the finished unit as one Results row; cycles not run are "-NA-"
+static void push_unit(int ch, const char *overall, const char *failStep) {
   const ChannelView &v = s_view[ch];
   ResultRow r;
   memset(&r, 0, sizeof(r));
@@ -57,23 +87,14 @@ static void push_row(int ch, const char *cycleRes, const char *failStep) {
   strlcpy(r.op, g_app.operatorName, sizeof(r.op));
   strlcpy(r.model, s_spec ? s_spec->name : "", sizeof(r.model));
   r.ch = ch + 1;
-  r.cycle = v.cycle;
   r.cycles = s_spec ? s_spec->cycles : 0;
-  strlcpy(r.cycleRes, cycleRes, sizeof(r.cycleRes));
-  strlcpy(r.open, pf_txt(v.open), sizeof(r.open));
-
-  if (v.inrushMeasured) snprintf(r.inrushA, sizeof(r.inrushA), "%.2f", v.inrushA);
-  else strlcpy(r.inrushA, "-NA-", sizeof(r.inrushA));
-  if (v.inrush == ST_NA && v.inrushMeasured) strlcpy(r.inrushPF, "NA", sizeof(r.inrushPF));
-  else strlcpy(r.inrushPF, pf_txt(v.inrush), sizeof(r.inrushPF));
-
-  if (v.contMeasured) snprintf(r.contA, sizeof(r.contA), "%.3f", v.contA);
-  else strlcpy(r.contA, "-NA-", sizeof(r.contA));
-  strlcpy(r.contPF, pf_txt(v.cont), sizeof(r.contPF));
-
-  strlcpy(r.contin, pf_txt(v.contin), sizeof(r.contin));
-  strlcpy(r.release, pf_txt(v.release), sizeof(r.release));
+  if (r.cycles > MAX_CYCLES) r.cycles = MAX_CYCLES;
+  strlcpy(r.overall, overall, sizeof(r.overall));
   strlcpy(r.failStep, failStep, sizeof(r.failStep));
+  for (int i = 0; i < r.cycles; i++) {
+    if (i < v.cycle) r.cyc[i] = s_cyc[ch][i];
+    else fill_na(r.cyc[i]);
+  }
 
   int idx = (s_qHead + s_qCount) % RESULT_QUEUE_LEN;
   if (s_qCount == RESULT_QUEUE_LEN) {
@@ -101,7 +122,8 @@ static void fail(int ch, StepState *step, const char *name, uint32_t now) {
   strlcpy(v.failStep, name, sizeof(v.failStep));
   v.status = CH_FAIL;
   s_run[ch].ph = P_DONE;
-  push_row(ch, "FAIL", name);
+  record_cycle(ch);
+  push_unit(ch, "FAIL", name);
   set_event("CH%d cycle %d FAIL: %s", ch + 1, v.cycle, name);
 }
 
@@ -214,8 +236,9 @@ static void tick_channel(int ch, uint32_t now) {
           break;
         }
         v.release = ST_PASS;
-        push_row(ch, "PASS", "");
+        record_cycle(ch);
         if (v.cycle >= m.cycles) {
+          push_unit(ch, "PASS", "");
           v.status = CH_PASS;
           r.ph = P_DONE;
           set_event("CH%d PASS - all %d cycles", ch + 1, m.cycles);
@@ -266,6 +289,7 @@ void rig_reset(const bool enabled[NUM_CH]) {
 void rig_start(const ModelSpec *spec, const bool enabled[NUM_CH]) {
   if (rig_running()) return;
   rig_reset(enabled);
+  memset(s_cyc, 0, sizeof(s_cyc));
   s_spec = spec;
   hw_sim_set_spec(spec);
 
@@ -291,9 +315,10 @@ void rig_stop_all() {
     hw_relay(ch, false, now);
     if (midCycle) {
       mark_rest_na(v);
-      strlcpy(v.failStep, "ABORTED", sizeof(v.failStep));
-      push_row(ch, "ABORTED", "ABORTED");
+      record_cycle(ch);
     }
+    strlcpy(v.failStep, "ABORTED", sizeof(v.failStep));
+    push_unit(ch, "ABORTED", "ABORTED");
     v.status = CH_ABORTED;
     r.ph = P_DONE;
   }
