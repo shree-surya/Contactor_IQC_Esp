@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <stdarg.h>
+#include <esp_system.h>
 #include "rig.h"
 #include "hw_sim.h"
 

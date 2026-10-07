@@ -1,6 +1,7 @@
 #define LGFX_USE_V1
 #include <Arduino.h>
 #include <Wire.h>
+#include <esp_heap_caps.h>
 #include <LovyanGFX.hpp>
 #include <lgfx/v1/platforms/esp32s3/Panel_RGB.hpp>
 #include <lgfx/v1/platforms/esp32s3/Bus_RGB.hpp>
