@@ -19,8 +19,8 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 | | |
 |---|---|
 | ![Login](docs/screenshots/1_login.png) | ![Model & serials](docs/screenshots/2_model_serials.png) |
-| ![Serial keyboard](docs/screenshots/3_serial_keyboard.png) | ![Test running](docs/screenshots/4_test_running.png) |
-| ![Test done](docs/screenshots/5_test_done_with_fail.png) | ![Stopped](docs/screenshots/6_test_stopped.png) |
+| ![Keyboard](docs/screenshots/3_keyboard.png) | ![Test running](docs/screenshots/4_test_running.png) |
+| ![Test done](docs/screenshots/5_test_done_with_fail.png) | ![Next batch upload](docs/screenshots/6_next_batch_upload.png) |
 | ![Setup](docs/screenshots/7_setup.png) | ![Admin](docs/screenshots/8_admin_wifi.png) |
 
 ## Flashing (first time)
