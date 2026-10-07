@@ -11,7 +11,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 | UI: all screens, keyboard, 5-channel test table | ✅ this build |
 | Test sequence (staggered start, stop at first fail, -NA- logging) | ✅ runs against simulated hardware |
 | WiFi (credentials entered on the Admin screen) | ✅ this build |
-| Google Sheets (specs, operators, results upload) | ⏳ next step |
+| Google Sheets (specs, operators, results upload, offline queue) | ✅ needs `include/secrets.h` |
 | I²C link to the ESP32-S3 sub-board | ⏳ after the parts arrive |
 
 ## Screens
@@ -52,7 +52,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 6. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
 
 The upload icon in the header counts result rows waiting to be sent to Google Sheets.
-Nothing is uploaded yet; that comes with the Sheets step.
+Rows are queued in flash and uploaded in the background; Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
 
 ## If something looks wrong
 
@@ -77,6 +77,8 @@ hmi
     ├── rig.cpp           5-channel test sequencer (moves to the sub-board later)
     ├── hw_sim.cpp        simulated relays / INA219 / contacts
     ├── net.cpp           WiFi
+    ├── gsheets.cpp       Google Sheets: login (JWT), read Specs/Operators, append Results, flash queue
+    ├── google_roots.h    Google root certificates for HTTPS
     ├── serial_util.cpp   "+" serial increment
     ├── fonts/            Bai Jamjuree SemiBold 16/20/24/32 px (+ LVGL symbols), OFL licence
     └── ui/
@@ -89,8 +91,9 @@ hmi
         └── ui_admin.cpp  password, WiFi, manual relay test, system
 ```
 
-To change colours or text sizes, edit `src/ui/ui_theme.h`. Palette: near-black `#0F1115`,
-cyan `#35D0FF`, orange `#FF8A3D` (running), lime `#B6F24A` (pass), plus red `#FF4D5E` for FAIL only.
+To change colours or text sizes, edit `src/ui/ui_theme.h`. Light theme: black bars with yellow
+`#FFCC00` accents, white/light-grey surfaces, grey text `#808080` / `#A0A0A0`, green for PASS,
+red for FAIL. Font: Bai Jamjuree SemiBold.
 
 Fonts were generated with `lv_font_conv` (4 bpp, ASCII + LVGL symbols). To add a size, run e.g.:
 `npx lv_font_conv --bpp 4 --size 28 --no-compress --font BaiJamjuree-SemiBold.ttf --range 0x20-0x7E --font FontAwesome5-Solid+Brands+Regular.woff --range <symbol list from font_bai_16.c header> --format lvgl --lv-include lvgl.h -o font_bai_28.c`

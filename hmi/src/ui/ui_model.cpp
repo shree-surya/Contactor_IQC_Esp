@@ -226,6 +226,7 @@ void ui_show_model() {
   char title[80];
   snprintf(title, sizeof(title), "Operator: %s", g_app.operatorName);
   ui_header(scr, title);
+  ui_set_current(UI_MODEL);
 
   // Scrollable body: model selector + 5 channel rows
   s_body = lv_obj_create(scr);

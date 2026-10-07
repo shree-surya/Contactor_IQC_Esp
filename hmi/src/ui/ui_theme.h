@@ -5,39 +5,43 @@
 // All colours, fonts and common sizes for the UI live here.
 // Change the look of the whole application from this one file.
 //
-// Palette: near-black base with cyan / orange / lime accents.
-// Red is added for FAIL only, so a failure is never mistaken for "running".
+// Light theme based on the reference design: black bars with yellow
+// (#FFCC00) accents, white / light-grey surfaces, grey secondary text.
+// Green and red are added for PASS / FAIL.
 // ---------------------------------------------------------------------------
 
-// Base
-#define COL_BG        lv_color_hex(0x0F1115)  // near-black screen background
-#define COL_CARD      lv_color_hex(0x181B22)  // panels, table cells
-#define COL_HEADER    lv_color_hex(0x161A21)  // top bar
-#define COL_LABEL_BG  lv_color_hex(0x1C2028)  // table label column
-#define COL_BORDER    lv_color_hex(0x2C313C)
-#define COL_TEXT      lv_color_hex(0xE8ECF1)
-#define COL_MUTED     lv_color_hex(0x8A93A3)
-#define COL_DARK_TEXT lv_color_hex(0x0F1115)  // text on bright buttons
+// Base (light)
+#define COL_BG        lv_color_hex(0xF2F2F2)  // screen background
+#define COL_CARD      lv_color_hex(0xFFFFFF)  // panels, table cells
+#define COL_ROW_ALT   lv_color_hex(0xF7F7F7)  // alternate table rows
+#define COL_HEADER    lv_color_hex(0x000000)  // top bar, table header (reference: --bg-deep)
+#define COL_LABEL_BG  lv_color_hex(0xEDEDED)  // table label column
+#define COL_BORDER    lv_color_hex(0xDADADA)
+#define COL_TEXT      lv_color_hex(0x1E1E1E)  // reference: --bg used as text on light
+#define COL_MUTED     lv_color_hex(0x808080)  // reference: --muted
+#define COL_SOFT      lv_color_hex(0xA0A0A0)  // reference: --fg2
+#define COL_DARK_TEXT lv_color_hex(0x000000)  // text on bright buttons
+#define COL_ON_DARK   lv_color_hex(0xFFFFFF)  // text on black bars
 
 // Accents
-#define COL_CYAN      lv_color_hex(0x35D0FF)
-#define COL_ORANGE    lv_color_hex(0xFF8A3D)
-#define COL_LIME      lv_color_hex(0xB6F24A)
-#define COL_RED       lv_color_hex(0xFF4D5E)
+#define COL_ACCENT    lv_color_hex(0xFFCC00)  // reference: --accent
+#define COL_GREEN     lv_color_hex(0x1F9D55)
+#define COL_RED       lv_color_hex(0xE5484D)
+#define COL_WARN_TXT  lv_color_hex(0xFF6B4A)  // reference: .warn
 
 // Roles
-#define COL_PRIMARY   COL_CYAN
-#define COL_OK        COL_LIME
+#define COL_PRIMARY   COL_ACCENT
+#define COL_OK        COL_GREEN
 #define COL_FAIL      COL_RED
-#define COL_WARN      COL_ORANGE
-#define COL_NEUTRAL   lv_color_hex(0x2C313C)  // secondary buttons
-#define COL_ABORT     lv_color_hex(0x6B4A3A)
+#define COL_WARN      COL_ACCENT
+#define COL_NEUTRAL   lv_color_hex(0x262626)  // secondary buttons (reference: --row-odd)
+#define COL_ABORT     lv_color_hex(0x6D4C41)
 
 // Tinted cell backgrounds for the result table
-#define COL_PASS_BG   lv_color_hex(0x232E17)
-#define COL_FAIL_BG   lv_color_hex(0x3A1A20)
-#define COL_RUN_BG    lv_color_hex(0x3A2616)
-#define COL_WAIT_BG   lv_color_hex(0x10303D)
+#define COL_PASS_BG   lv_color_hex(0xE3F5EA)
+#define COL_FAIL_BG   lv_color_hex(0xFDE4E5)
+#define COL_RUN_BG    lv_color_hex(0xFFF5CC)
+#define COL_LIVE_BG   lv_color_hex(0xFFF8DB)
 
 // Fonts: Bai Jamjuree SemiBold (src/fonts), with LVGL symbols merged in
 LV_FONT_DECLARE(font_bai_16);

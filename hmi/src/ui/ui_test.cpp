@@ -5,10 +5,10 @@
 
 // Table layout: rows = parameters, columns = channels.
 // The top-left cell shows the batch state (READY / RUNNING / DONE / STOPPED).
-enum Row { R_HEAD, R_SERIAL, R_CYCLE, R_LIVE, R_OPEN, R_INRUSH, R_CONT, R_CONTIN, R_RELEASE, R_STATUS, ROWS };
+enum Row { R_HEAD, R_LIVE, R_STATUS, R_SERIAL, R_CYCLE, R_OPEN, R_INRUSH, R_CONT, R_CONTIN, R_RELEASE, ROWS };
 static const int COLS = NUM_CH + 1;
-static const char *ROW_NAMES[ROWS] = {"", "Serial", "Cycle", "Live (A)", "Open", "In-rush (A)",
-                                      "Cont (A)", "Continuity", "Release", "STATUS"};
+static const char *ROW_NAMES[ROWS] = {"", "Live (A)", "Status", "Serial", "Cycle", "Open",
+                                      "In-rush (A)", "Cont (A)", "Continuity", "Release"};
 
 enum CellStyle : uint8_t {
   CS_PLAIN, CS_HEAD, CS_LABEL, CS_MUTED, CS_LIVE, CS_PASS, CS_FAIL, CS_RUN,
@@ -34,21 +34,21 @@ static void table_draw_cb(lv_event_t *e) {
   uint32_t col = dsc->id % COLS;
   if (row >= ROWS) return;
 
-  lv_color_t bg = COL_CARD, fg = COL_TEXT;
+  lv_color_t bg = (row % 2) ? COL_CARD : COL_ROW_ALT, fg = COL_TEXT;
   switch (s_style[row][col]) {
-    case CS_HEAD: bg = COL_HEADER; fg = COL_CYAN; break;
+    case CS_HEAD: bg = COL_HEADER; fg = COL_ACCENT; break;
     case CS_LABEL: bg = COL_LABEL_BG; fg = COL_MUTED; break;
-    case CS_MUTED: fg = COL_MUTED; break;
-    case CS_LIVE: fg = COL_CYAN; break;
-    case CS_PASS: bg = COL_PASS_BG; fg = COL_LIME; break;
+    case CS_MUTED: fg = COL_SOFT; break;
+    case CS_LIVE: bg = COL_LIVE_BG; fg = COL_DARK_TEXT; break;
+    case CS_PASS: bg = COL_PASS_BG; fg = COL_GREEN; break;
     case CS_FAIL: bg = COL_FAIL_BG; fg = COL_RED; break;
-    case CS_RUN: bg = COL_RUN_BG; fg = COL_ORANGE; break;
-    case CS_ST_IDLE: bg = COL_NEUTRAL; fg = COL_MUTED; break;
-    case CS_ST_WAIT: bg = COL_CYAN; fg = COL_DARK_TEXT; break;
-    case CS_ST_RUN: bg = COL_ORANGE; fg = COL_DARK_TEXT; break;
-    case CS_ST_PASS: bg = COL_LIME; fg = COL_DARK_TEXT; break;
-    case CS_ST_FAIL: bg = COL_RED; fg = COL_DARK_TEXT; break;
-    case CS_ST_ABORT: bg = COL_ABORT; fg = COL_TEXT; break;
+    case CS_RUN: bg = COL_RUN_BG; fg = COL_TEXT; break;
+    case CS_ST_IDLE: bg = COL_LABEL_BG; fg = COL_MUTED; break;
+    case CS_ST_WAIT: bg = COL_NEUTRAL; fg = COL_ACCENT; break;
+    case CS_ST_RUN: bg = COL_ACCENT; fg = COL_DARK_TEXT; break;
+    case CS_ST_PASS: bg = COL_GREEN; fg = COL_ON_DARK; break;
+    case CS_ST_FAIL: bg = COL_RED; fg = COL_ON_DARK; break;
+    case CS_ST_ABORT: bg = COL_ABORT; fg = COL_ON_DARK; break;
     default: break;
   }
   dsc->rect_dsc->bg_color = bg;
@@ -167,7 +167,8 @@ static void stop_cb(lv_event_t *) {
 }
 
 static void next_cb(lv_event_t *) {
-  // Keep operator and model; clear serials and ticks for the next batch
+  // Keep the operator; the model, serials and ticks are chosen again for every batch
+  g_app.modelIdx = -1;
   for (int i = 0; i < NUM_CH; i++) {
     g_app.serial[i][0] = '\0';
     g_app.chEnabled[i] = false;
@@ -183,6 +184,7 @@ void ui_show_test() {
   char title[120];
   snprintf(title, sizeof(title), "%s  |  %s", g_app.operatorName, m.name);
   ui_header(scr, title);
+  ui_set_current(UI_TEST);
 
   s_table = lv_table_create(scr);
   lv_table_set_col_cnt(s_table, COLS);
@@ -192,6 +194,7 @@ void ui_show_test() {
   lv_obj_set_style_text_font(s_table, FONT_S, LV_PART_ITEMS);
   lv_obj_set_style_pad_top(s_table, 7, LV_PART_ITEMS);
   lv_obj_set_style_pad_bottom(s_table, 7, LV_PART_ITEMS);
+  lv_obj_set_style_text_color(s_table, COL_TEXT, LV_PART_ITEMS);
   lv_obj_set_style_pad_left(s_table, 8, LV_PART_ITEMS);
   lv_obj_set_style_pad_right(s_table, 4, LV_PART_ITEMS);
   lv_obj_set_style_border_width(s_table, 1, LV_PART_ITEMS);

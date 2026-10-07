@@ -33,5 +33,13 @@ extern char g_operators[MAX_OPERATORS][NAME_MAX_LEN + 1];
 extern int g_operatorCount;
 extern AppState g_app;
 
-// Loads built-in defaults. Will be replaced by the cached Google Sheet data.
+// Loads built-in defaults (used until the Google Sheet has been read once).
 void app_data_init();
+
+// Fills timings with the defaults; limits are left untouched.
+void app_data_default_timings(ModelSpec &m);
+
+// Replaces models / operators (from the Sheet or its flash cache).
+// The selected model is cleared because its index may have changed.
+void app_data_set_models(const ModelSpec *models, int count);
+void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], int count);

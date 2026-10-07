@@ -241,6 +241,7 @@ static void build_system_tab(lv_obj_t *tab) {
 void ui_show_admin() {
   lv_obj_t *scr = ui_screen_create();
   ui_header(scr, "ADMIN");
+  ui_set_current(UI_ADMIN);
 
   lv_obj_t *tv = lv_tabview_create(scr, LV_DIR_TOP, 46);
   lv_obj_set_size(tv, SCR_W, SCR_H - HEADER_H - FOOTER_H);

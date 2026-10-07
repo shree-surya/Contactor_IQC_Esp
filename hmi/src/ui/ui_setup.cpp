@@ -3,6 +3,7 @@
 #include "../app_data.h"
 #include "../net.h"
 #include "../rig.h"
+#include "../gsheets.h"
 
 static void (*s_back)() = nullptr;
 static lv_obj_t *s_status_lbl = nullptr;
@@ -13,7 +14,12 @@ static void back_cb(lv_event_t *) {
 }
 
 static void sync_cb(lv_event_t *) {
-  ui_toast("Sync", "Google Sheets is not connected yet.\nUsing the built-in specs and operator list.");
+  if (!gsheets_configured()) {
+    ui_toast("Sync", "Google Sheets is not configured.\nAdd include/secrets.h and rebuild.");
+    return;
+  }
+  gsheets_request_sync();
+  ui_toast("Sync", "Reading Specs and Operators from the Google Sheet.\nThe tables refresh when it is done.");
 }
 
 static lv_obj_t *make_table(lv_obj_t *parent, int cols, int rows) {
@@ -92,26 +98,29 @@ static void build_operators_tab(lv_obj_t *tab) {
     lv_obj_set_style_text_font(l, FONT_M, 0);
   }
   lv_obj_t *n = lv_label_create(tab);
-  lv_label_set_text(n, "Names come from the \"Operators\" sheet once Google Sheets is connected.");
+  lv_label_set_text(n, "Names come from the \"Operators\" tab of the Google Sheet (max 10).");
   lv_obj_set_style_text_color(n, COL_MUTED, 0);
 }
 
 static void refresh_status() {
   if (!s_status_lbl) return;
-  char ssid[40], ip[20];
+  char ssid[40], ip[20], gs[64], last[24], now[24];
   net_saved_ssid(ssid, sizeof(ssid));
   net_ip(ip, sizeof(ip));
+  gsheets_status(gs, sizeof(gs));
+  gsheets_last_sync(last, sizeof(last));
+  gsheets_now_str(now, sizeof(now));
   lv_label_set_text_fmt(s_status_lbl,
                         "WiFi network:   %s\n"
-                        "WiFi status:    %s (RSSI %d dBm)\n"
-                        "IP address:     %s\n"
-                        "Google Sheet:   not configured\n"
-                        "Last sync:      -\n"
-                        "Pending rows:   %d\n"
+                        "WiFi status:    %s (RSSI %d dBm)   IP %s\n"
+                        "Google Sheet:   %s\n"
+                        "Last sync:      %s\n"
+                        "Rows to upload: %d\n"
+                        "Clock:          %s\n"
                         "Test rig:       %s\n"
                         "Firmware:       " FW_VERSION,
                         ssid[0] ? ssid : "(not set - see Admin)", net_connected() ? "connected" : "not connected",
-                        net_rssi(), ip, rig_pending_count(),
+                        net_rssi(), ip, gs, last, gsheets_pending_count(), now,
                         rig_is_simulated() ? "SIMULATION (sub-board not connected)" : "connected");
 }
 
@@ -127,10 +136,13 @@ static void screen_deleted(lv_event_t *e) {
   }
 }
 
+void ui_setup_refresh() { ui_show_setup(s_back); }
+
 void ui_show_setup(void (*back)()) {
   s_back = back;
   lv_obj_t *scr = ui_screen_create();
   ui_header(scr, "SETUP");
+  ui_set_current(UI_SETUP);
 
   lv_obj_t *tv = lv_tabview_create(scr, LV_DIR_TOP, 46);
   lv_obj_set_size(tv, SCR_W, SCR_H - HEADER_H - FOOTER_H);

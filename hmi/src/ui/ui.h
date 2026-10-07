@@ -8,10 +8,18 @@
 //   Login -> Admin (password) -> WiFi / Manual relay / System
 void ui_init();
 
+enum UiScreen { UI_LOGIN, UI_MODEL, UI_TEST, UI_SETUP, UI_ADMIN };
+void ui_set_current(UiScreen s);
+
+// Newly synced specs/operators: may they be applied now, and refresh after
+bool ui_can_apply_data();
+void ui_data_changed();
+
 void ui_show_login();
 void ui_show_model();
 void ui_show_test();
 void ui_show_setup(void (*back)());
+void ui_setup_refresh();
 void ui_admin_prompt();
 void ui_show_admin();
 

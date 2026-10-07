@@ -14,6 +14,10 @@ static void add_model(const char *name, float irL, float irU, float cL, float cU
   m.inrushUsl = irU;
   m.contLsl = cL;
   m.contUsl = cU;
+  app_data_default_timings(m);
+}
+
+void app_data_default_timings(ModelSpec &m) {
   m.inrushWinMs = 1000;
   m.settleMs = 2000;
   m.avgMs = 3000;
@@ -21,6 +25,21 @@ static void add_model(const char *name, float irL, float irU, float cL, float cU
   m.cycles = 5;
   m.cycleGapMs = 5000;
   m.staggerMs = 1500;
+}
+
+void app_data_set_models(const ModelSpec *models, int count) {
+  if (count <= 0) return;
+  if (count > MAX_MODELS) count = MAX_MODELS;
+  memcpy(g_models, models, sizeof(ModelSpec) * count);
+  g_modelCount = count;
+  g_app.modelIdx = -1;
+}
+
+void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], int count) {
+  if (count <= 0) return;
+  if (count > MAX_OPERATORS) count = MAX_OPERATORS;
+  for (int i = 0; i < count; i++) strlcpy(g_operators[i], names[i], NAME_MAX_LEN + 1);
+  g_operatorCount = count;
 }
 
 static void add_operator(const char *name) {

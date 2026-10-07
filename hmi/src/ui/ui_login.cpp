@@ -20,11 +20,17 @@ static void admin_cb(lv_event_t *) { ui_admin_prompt(); }
 void ui_show_login() {
   lv_obj_t *scr = ui_screen_create();
   ui_header(scr, "CONTACTOR IQC");
+  ui_set_current(UI_LOGIN);
 
   lv_obj_t *card = lv_obj_create(scr);
   lv_obj_set_size(card, 560, 290);
   lv_obj_align(card, LV_ALIGN_CENTER, 0, -10);
   lv_obj_set_style_bg_color(card, COL_CARD, 0);
+  lv_obj_set_style_border_color(card, COL_BORDER, 0);
+  lv_obj_set_style_border_width(card, 1, 0);
+  lv_obj_set_style_border_side(card, LV_BORDER_SIDE_TOP, 0);
+  lv_obj_set_style_border_width(card, 4, 0);
+  lv_obj_set_style_border_color(card, COL_ACCENT, 0);
   lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *t = lv_label_create(card);

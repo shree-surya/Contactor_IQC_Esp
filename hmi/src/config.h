@@ -4,7 +4,7 @@
 // Firmware-wide constants. Change values here, not scattered in the code.
 // ---------------------------------------------------------------------------
 
-#define FW_VERSION "0.1.0-ui-sim"
+#define FW_VERSION "0.2.0-sheets"
 
 #define NUM_CH 5             // test channels (contactor slots)
 #define MAX_MODELS 8
