@@ -11,6 +11,7 @@
 #define MAX_OPERATORS 10
 #define SERIAL_MAX_LEN 32    // free-text serial number length
 #define NAME_MAX_LEN 47      // model / operator name length
+#define PASS_MAX_LEN 32      // operator password length
 
 #define ADMIN_PASSWORD "100100"
 

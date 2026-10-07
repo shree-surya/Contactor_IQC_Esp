@@ -3,6 +3,7 @@
 ModelSpec g_models[MAX_MODELS];
 int g_modelCount = 0;
 char g_operators[MAX_OPERATORS][NAME_MAX_LEN + 1];
+char g_operatorPass[MAX_OPERATORS][PASS_MAX_LEN + 1];
 int g_operatorCount = 0;
 AppState g_app;
 
@@ -35,15 +36,24 @@ void app_data_set_models(const ModelSpec *models, int count) {
   g_app.modelIdx = -1;
 }
 
-void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], int count) {
+void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], const char pass[][PASS_MAX_LEN + 1], int count) {
   if (count <= 0) return;
   if (count > MAX_OPERATORS) count = MAX_OPERATORS;
-  for (int i = 0; i < count; i++) strlcpy(g_operators[i], names[i], NAME_MAX_LEN + 1);
+  for (int i = 0; i < count; i++) {
+    strlcpy(g_operators[i], names[i], NAME_MAX_LEN + 1);
+    strlcpy(g_operatorPass[i], pass[i], PASS_MAX_LEN + 1);
+  }
   g_operatorCount = count;
+}
+
+bool app_data_check_password(int op, const char *password) {
+  if (op < 0 || op >= g_operatorCount) return false;
+  return strcmp(g_operatorPass[op], password) == 0;
 }
 
 static void add_operator(const char *name) {
   if (g_operatorCount >= MAX_OPERATORS) return;
+  g_operatorPass[g_operatorCount][0] = '\0';  // built-in placeholders have no password
   strlcpy(g_operators[g_operatorCount++], name, NAME_MAX_LEN + 1);
 }
 

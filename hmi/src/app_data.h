@@ -30,6 +30,7 @@ struct AppState {
 extern ModelSpec g_models[MAX_MODELS];
 extern int g_modelCount;
 extern char g_operators[MAX_OPERATORS][NAME_MAX_LEN + 1];
+extern char g_operatorPass[MAX_OPERATORS][PASS_MAX_LEN + 1];  // "" = no password
 extern int g_operatorCount;
 extern AppState g_app;
 
@@ -42,4 +43,7 @@ void app_data_default_timings(ModelSpec &m);
 // Replaces models / operators (from the Sheet or its flash cache).
 // The selected model is cleared because its index may have changed.
 void app_data_set_models(const ModelSpec *models, int count);
-void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], int count);
+void app_data_set_operators(const char names[][NAME_MAX_LEN + 1], const char pass[][PASS_MAX_LEN + 1], int count);
+
+// True if the password matches the one stored for this operator (index into g_operators)
+bool app_data_check_password(int op, const char *password);

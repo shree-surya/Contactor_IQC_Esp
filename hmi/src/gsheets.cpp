@@ -46,6 +46,7 @@ static char s_lastSync[24] = "-";
 static ModelSpec s_newModels[MAX_MODELS];
 static int s_newModelCount = 0;
 static char s_newOps[MAX_OPERATORS][NAME_MAX_LEN + 1];
+static char s_newPass[MAX_OPERATORS][PASS_MAX_LEN + 1];
 static int s_newOpCount = 0;
 static bool s_newData = false;
 
@@ -289,14 +290,19 @@ static int parse_models(JsonArray rows, ModelSpec *out) {
   return n;
 }
 
-static int parse_operators(JsonArray rows, char out[][NAME_MAX_LEN + 1]) {
+// Operators tab: column A = name, column B = password (empty = no password)
+static int parse_operators(JsonArray rows, char out[][NAME_MAX_LEN + 1], char pass[][PASS_MAX_LEN + 1]) {
   int n = 0;
   for (JsonArray row : rows) {
     if (n >= MAX_OPERATORS) break;
     String name = row[0].as<String>();
     name.trim();
     if (!name.length() || name == "null") continue;
-    strlcpy(out[n++], name.c_str(), NAME_MAX_LEN + 1);
+    String pw = row[1].isNull() ? String("") : row[1].as<String>();
+    pw.trim();
+    strlcpy(out[n], name.c_str(), NAME_MAX_LEN + 1);
+    strlcpy(pass[n], pw.c_str(), PASS_MAX_LEN + 1);
+    n++;
   }
   return n;
 }
@@ -324,10 +330,11 @@ static void load_cache() {
   if (err) return;
   static ModelSpec models[MAX_MODELS];
   static char ops[MAX_OPERATORS][NAME_MAX_LEN + 1];
+  static char pass[MAX_OPERATORS][PASS_MAX_LEN + 1];
   int nm = parse_models(doc["specs"].as<JsonArray>(), models);
-  int no = parse_operators(doc["operators"].as<JsonArray>(), ops);
+  int no = parse_operators(doc["operators"].as<JsonArray>(), ops, pass);
   app_data_set_models(models, nm);
-  app_data_set_operators(ops, no);
+  app_data_set_operators(ops, pass, no);
   strlcpy(s_lastSync, doc["synced"] | "-", sizeof(s_lastSync));
   Serial.printf("[sheets] cache loaded: %d models, %d operators (synced %s)\n", nm, no, s_lastSync);
 }
@@ -335,7 +342,7 @@ static void load_cache() {
 static bool do_sync() {
   set_status("Reading Specs");
   String url = String("https://sheets.googleapis.com/v4/spreadsheets/") + GSHEET_ID +
-               "/values:batchGet?ranges=Specs%21A2%3AL9&ranges=Operators%21A2%3AA11&valueRenderOption=UNFORMATTED_VALUE";
+               "/values:batchGet?ranges=Specs%21A2%3AL9&ranges=Operators%21A2%3AB11&valueRenderOption=UNFORMATTED_VALUE";
   String resp;
   int code = api("GET", url, "", resp);
   if (code != 200) {
@@ -352,8 +359,9 @@ static bool do_sync() {
 
   static ModelSpec models[MAX_MODELS];
   static char ops[MAX_OPERATORS][NAME_MAX_LEN + 1];
+  static char pass[MAX_OPERATORS][PASS_MAX_LEN + 1];
   int nm = parse_models(specRows, models);
-  int no = parse_operators(opRows, ops);
+  int no = parse_operators(opRows, ops, pass);
   if (nm == 0) {
     set_status("Error: no valid rows in Specs");
     return false;
@@ -364,7 +372,10 @@ static bool do_sync() {
     Lock l;
     memcpy(s_newModels, models, sizeof(ModelSpec) * nm);
     s_newModelCount = nm;
-    for (int i = 0; i < no; i++) strlcpy(s_newOps[i], ops[i], NAME_MAX_LEN + 1);
+    for (int i = 0; i < no; i++) {
+      strlcpy(s_newOps[i], ops[i], NAME_MAX_LEN + 1);
+      strlcpy(s_newPass[i], pass[i], PASS_MAX_LEN + 1);
+    }
     s_newOpCount = no;
     s_newData = true;
     strlcpy(s_lastSync, now, sizeof(s_lastSync));
@@ -583,7 +594,7 @@ void gsheets_apply_new_data() {
   Lock l;
   if (!s_newData) return;
   app_data_set_models(s_newModels, s_newModelCount);
-  app_data_set_operators(s_newOps, s_newOpCount);
+  app_data_set_operators(s_newOps, s_newPass, s_newOpCount);
   s_newData = false;
 }
 

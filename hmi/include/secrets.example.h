@@ -7,6 +7,10 @@
 // secrets.h is git-ignored: never commit it or share it.
 // ---------------------------------------------------------------------------
 
+// Factory WiFi (used until other credentials are saved on the Admin screen)
+#define WIFI_SSID "your-wifi-name"
+#define WIFI_PASS "your-wifi-password"
+
 // From the Sheet URL: https://docs.google.com/spreadsheets/d/<GSHEET_ID>/edit
 #define GSHEET_ID "paste-the-sheet-id-here"
 

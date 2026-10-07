@@ -18,7 +18,7 @@ Allow about 30 minutes. You only do this once.
 5. Rename that copy to **Contactor IQC** (top-left title) and delete the uploaded `.xlsx` from Drive.
 6. Check it has 4 tabs: **Specs, Operators, Results, README**.
    - **Specs:** check the 4 models and their limits.
-   - **Operators:** replace `Operator 1…3` with real names (max 10, one per row).
+   - **Operators:** column A = name, column B = login password (max 10 rows; empty password = none).
    - Don't rename tabs or edit header rows.
 7. Copy the **Sheet ID** from the address bar and keep it for Part D:
 

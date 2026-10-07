@@ -3,6 +3,16 @@
 #include <Preferences.h>
 #include "net.h"
 
+// Optional factory WiFi from include/secrets.h (git-ignored). Used until other
+// credentials are saved on the Admin screen.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#define WIFI_PASS ""
+#endif
+
 static const char *PREF_NS = "iqc_net";
 
 void net_begin() {
@@ -11,8 +21,8 @@ void net_begin() {
 
   Preferences prefs;
   prefs.begin(PREF_NS, true);
-  String ssid = prefs.getString("ssid", "");
-  String pass = prefs.getString("pass", "");
+  String ssid = prefs.getString("ssid", WIFI_SSID);
+  String pass = prefs.getString("pass", WIFI_PASS);
   prefs.end();
 
   if (ssid.length()) WiFi.begin(ssid.c_str(), pass.c_str());
@@ -36,7 +46,7 @@ int net_rssi() { return net_connected() ? WiFi.RSSI() : 0; }
 void net_saved_ssid(char *buf, size_t len) {
   Preferences prefs;
   prefs.begin(PREF_NS, true);
-  String ssid = prefs.getString("ssid", "");
+  String ssid = prefs.getString("ssid", WIFI_SSID);
   prefs.end();
   strlcpy(buf, ssid.c_str(), len);
 }
