@@ -27,13 +27,10 @@
 #define LV_DISP_DEF_REFR_PERIOD 20
 #define LV_INDEV_DEF_READ_PERIOD 20
 
-/* Fonts used by the UI */
+/* Fonts: the UI uses Bai Jamjuree (src/fonts/font_bai_*.c) */
 #define LV_FONT_MONTSERRAT_14 1
-#define LV_FONT_MONTSERRAT_16 1
-#define LV_FONT_MONTSERRAT_20 1
-#define LV_FONT_MONTSERRAT_24 1
-#define LV_FONT_MONTSERRAT_32 1
-#define LV_FONT_DEFAULT &lv_font_montserrat_16
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(font_bai_16)
+#define LV_FONT_DEFAULT &font_bai_16
 
 /* Allow %f in lv_label_set_text_fmt() */
 #define LV_SPRINTF_USE_FLOAT 1

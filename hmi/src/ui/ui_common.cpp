@@ -14,7 +14,7 @@ static void status_timer_cb(lv_timer_t *) { ui_update_status(); }
 
 void ui_init() {
   lv_disp_t *disp = lv_disp_get_default();
-  lv_theme_t *th = lv_theme_default_init(disp, COL_PRIMARY, COL_NEUTRAL, false, FONT_S);
+  lv_theme_t *th = lv_theme_default_init(disp, COL_PRIMARY, COL_WARN, true, FONT_S);
   lv_disp_set_theme(disp, th);
   lv_timer_create(status_timer_cb, 1000, nullptr);
   ui_show_login();
@@ -23,6 +23,7 @@ void ui_init() {
 lv_obj_t *ui_screen_create() {
   lv_obj_t *scr = lv_obj_create(nullptr);
   lv_obj_set_style_bg_color(scr, COL_BG, 0);
+  lv_obj_set_style_text_color(scr, COL_TEXT, 0);
   lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
   return scr;
 }
@@ -41,7 +42,9 @@ lv_obj_t *ui_header(lv_obj_t *scr, const char *title) {
   lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 0);
   lv_obj_set_style_bg_color(bar, COL_HEADER, 0);
   lv_obj_set_style_radius(bar, 0, 0);
-  lv_obj_set_style_border_width(bar, 0, 0);
+  lv_obj_set_style_border_width(bar, 2, 0);
+  lv_obj_set_style_border_side(bar, LV_BORDER_SIDE_BOTTOM, 0);
+  lv_obj_set_style_border_color(bar, COL_CYAN, 0);
   lv_obj_set_style_pad_hor(bar, 14, 0);
   lv_obj_set_style_pad_ver(bar, 0, 0);
   lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
@@ -51,12 +54,12 @@ lv_obj_t *ui_header(lv_obj_t *scr, const char *title) {
   lv_label_set_long_mode(t, LV_LABEL_LONG_DOT);
   lv_obj_set_width(t, 570);
   lv_obj_set_style_text_font(t, FONT_M, 0);
-  lv_obj_set_style_text_color(t, lv_color_white(), 0);
+  lv_obj_set_style_text_color(t, COL_TEXT, 0);
   lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
 
   s_status_lbl = lv_label_create(bar);
   lv_obj_set_style_text_font(s_status_lbl, FONT_S, 0);
-  lv_obj_set_style_text_color(s_status_lbl, lv_color_white(), 0);
+  lv_obj_set_style_text_color(s_status_lbl, COL_CYAN, 0);
   lv_obj_align(s_status_lbl, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_add_event_cb(s_status_lbl, status_lbl_deleted, LV_EVENT_DELETE, nullptr);
   ui_update_status();
@@ -82,9 +85,13 @@ lv_obj_t *ui_btn(lv_obj_t *parent, const char *txt, lv_color_t color, lv_coord_t
   lv_obj_t *b = lv_btn_create(parent);
   lv_obj_set_size(b, w, h);
   lv_obj_set_style_bg_color(b, color, 0);
+  lv_obj_set_style_shadow_width(b, 0, 0);
+  lv_obj_set_style_radius(b, 10, 0);
   lv_obj_t *l = lv_label_create(b);
   lv_label_set_text(l, txt);
   lv_obj_set_style_text_font(l, FONT_M, 0);
+  // Dark text on bright accent buttons, light text on dark ones
+  lv_obj_set_style_text_color(l, lv_color_brightness(color) > 140 ? COL_DARK_TEXT : COL_TEXT, 0);
   lv_obj_center(l);
   if (cb) lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user_data);
   return b;

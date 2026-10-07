@@ -18,4 +18,9 @@ Incoming-quality-check rig for 12 V contactors, testing up to 5 contactors per b
 Channels start 1.5 s apart so only one in-rush happens at a time. Each channel stops at its
 first failure; the others carry on. Default: 5 cycles with a 5 s gap. Limits and timings per model.
 
+## Google Sheets
+
+Setup guide: [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md) ·
+template: [docs/Contactor_IQC_Sheet_Template.xlsx](docs/Contactor_IQC_Sheet_Template.xlsx)
+
 The original Raspberry Pi version lives in [shree-surya/Contactor_IQC](https://github.com/shree-surya/Contactor_IQC).

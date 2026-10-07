@@ -78,6 +78,7 @@ hmi
     ├── hw_sim.cpp        simulated relays / INA219 / contacts
     ├── net.cpp           WiFi
     ├── serial_util.cpp   "+" serial increment
+    ├── fonts/            Bai Jamjuree SemiBold 16/20/24/32 px (+ LVGL symbols), OFL licence
     └── ui/
         ├── ui_theme.h    all colours, fonts and sizes
         ├── ui_common.cpp header, footer, buttons, pop-ups
@@ -88,4 +89,8 @@ hmi
         └── ui_admin.cpp  password, WiFi, manual relay test, system
 ```
 
-To change colours or text sizes, edit `src/ui/ui_theme.h`.
+To change colours or text sizes, edit `src/ui/ui_theme.h`. Palette: near-black `#0F1115`,
+cyan `#35D0FF`, orange `#FF8A3D` (running), lime `#B6F24A` (pass), plus red `#FF4D5E` for FAIL only.
+
+Fonts were generated with `lv_font_conv` (4 bpp, ASCII + LVGL symbols). To add a size, run e.g.:
+`npx lv_font_conv --bpp 4 --size 28 --no-compress --font BaiJamjuree-SemiBold.ttf --range 0x20-0x7E --font FontAwesome5-Solid+Brands+Regular.woff --range <symbol list from font_bai_16.c header> --format lvgl --lv-include lvgl.h -o font_bai_28.c`
