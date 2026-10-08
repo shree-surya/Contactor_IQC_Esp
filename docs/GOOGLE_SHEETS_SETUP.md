@@ -100,20 +100,21 @@ the firmware:
 
 Each tested contactor is **one row**:
 
-`S.No | Serial | Timestamp | Operator | Model | Channel | Overall | Fail Step | 1- Open | 1- Inrush (A) | 1- Inrush P/F | 1- Cont (A) | 1- Cont P/F | 1- Continuity | 1- Release | 2- Open | … | 10- Release`
+`S.No | Serial | Timestamp | Operator | Model | Channel | Overall | Fail Step | 1- Open | 1- Inrush (A) | 1- Inrush P/F | 1- Cont (A) | 1- Cont P/F | 1- Continuity | 1- Release | 2- Open | … | 5- Release`
 
 - **Overall** is PASS (all cycles passed), FAIL, or ABORTED (STOP ALL).
-- Cycles that were not run (after a failure, or more columns than the model's cycle count) show `-NA-` or stay empty.
+- Up to 5 cycles per unit (the **Cycles** column in Specs can be 1 to 5).
+- Cycles that were not run (after a failure, or a model with fewer than 5 cycles) show `-NA-` or stay empty.
 - The **Timestamp** is when the unit finished (IST), written as text. A `*` at the end means the rig was
   offline when the unit finished, and the time shown is when the row was uploaded.
 
 ### Updating a Sheet you already made
 
-If your **Results** tab still has the old one-row-per-cycle header:
+If your **Results** tab still has an older header (one row per cycle, or columns up to `10- Release`):
 
 1. Delete all rows in **Results**, including the header.
 2. Open [`results_header.tsv`](results_header.tsv), select all, copy.
-3. Click cell **A1** of **Results**, then paste. The 78 headers fill row 1.
+3. Click cell **A1** of **Results**, then paste. The 43 headers fill row 1 (A to AQ). Delete any columns to the right of AQ.
 4. (Optional) Make row 1 bold and use **View → Freeze → 1 row**.
 
 Also check **Operators** has the password in column B.

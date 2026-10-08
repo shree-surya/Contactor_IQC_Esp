@@ -43,6 +43,7 @@ static bool s_syncedOnce = false;  // Specs/Operators read successfully since bo
 static bool s_syncErr = false;     // last sync attempt failed
 static bool s_hasCache = false;    // a synced copy exists in flash
 static uint32_t s_nextTry = 0;     // retry back-off
+static volatile bool s_hold = false;  // no network work while a test runs
 static char s_status[64] = "Starting";
 static char s_lastSync[24] = "-";
 
@@ -532,6 +533,12 @@ static void task(void *) {
       set_status(GS_CONFIGURED ? "Waiting for WiFi" : "Not configured (no secrets.h)");
       continue;
     }
+    // TLS uploads load the CPU and PSRAM bus that also feed the RGB panel, so
+    // rows wait in flash until the batch ends (NEXT BATCH uploads them).
+    if (s_hold) {
+      set_status("Paused (test running)");
+      continue;
+    }
     if (!ntpStarted) {
       configTzTime(TZ_INDIA, "time.google.com", "pool.ntp.org");
       ntpStarted = true;
@@ -606,6 +613,8 @@ void gsheets_request_sync() {
   s_syncReq = true;
   s_nextTry = 0;
 }
+
+void gsheets_set_hold(bool hold) { s_hold = hold; }
 
 void gsheets_flush_now() {
   Lock l;

@@ -29,8 +29,9 @@ void setup() {
 
 void loop() {
   rig_tick();
+  gsheets_set_hold(rig_running());
 
-  // Every finished cycle becomes a row for the "Results" sheet
+  // Every finished unit becomes one row for the "Results" sheet
   ResultRow row;
   while (rig_pop_result(&row)) gsheets_enqueue(row);
 

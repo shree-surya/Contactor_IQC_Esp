@@ -4,7 +4,7 @@
 #include "../rig.h"
 #include "../gsheets.h"
 
-// Table layout: rows = parameters, columns = channels.
+// Grid layout: rows = parameters, columns = channels.
 // The top-left cell shows the batch state (READY / RUNNING / DONE / STOPPED).
 enum Row { R_HEAD, R_LIVE, R_STATUS, R_SERIAL, R_CYCLE, R_OPEN, R_INRUSH, R_CONT, R_CONTIN, R_RELEASE, ROWS };
 static const int COLS = NUM_CH + 1;
@@ -16,27 +16,22 @@ enum CellStyle : uint8_t {
   CS_ST_IDLE, CS_ST_WAIT, CS_ST_RUN, CS_ST_PASS, CS_ST_FAIL, CS_ST_ABORT
 };
 
-static lv_obj_t *s_table;
+// The grid is built from one small object per cell (not lv_table): changing a
+// value then redraws only that cell. lv_table redraws the whole table on every
+// change, which during a test meant ~5 full-screen redraws per second into the
+// PSRAM frame buffer and visible flicker on the RGB panel.
+static const lv_coord_t COL0_W = 160, COL_W = 124, ROW_H = 34;
+
+static lv_obj_t *s_cell[ROWS][COLS];
+static lv_obj_t *s_lbl[ROWS][COLS];
 static lv_obj_t *s_btn_back, *s_btn_start, *s_btn_stop, *s_btn_next;
 static lv_timer_t *s_timer = nullptr;
 static uint8_t s_style[ROWS][COLS];
 static bool s_started = false;
 
-static void set_cell(int row, int col, const char *txt, CellStyle st) {
-  const char *cur = lv_table_get_cell_value(s_table, row, col);
-  if (!cur || strcmp(cur, txt) != 0) lv_table_set_cell_value(s_table, row, col, txt);
-  s_style[row][col] = st;
-}
-
-static void table_draw_cb(lv_event_t *e) {
-  lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(e);
-  if (dsc->part != LV_PART_ITEMS || !dsc->rect_dsc || !dsc->label_dsc) return;
-  uint32_t row = dsc->id / COLS;
-  uint32_t col = dsc->id % COLS;
-  if (row >= ROWS) return;
-
+static void apply_style(int row, int col, CellStyle st) {
   lv_color_t bg = (row % 2) ? COL_CARD : COL_ROW_ALT, fg = COL_TEXT;
-  switch (s_style[row][col]) {
+  switch (st) {
     case CS_HEAD: bg = COL_HEADER; fg = COL_ACCENT; break;
     case CS_LABEL: bg = COL_LABEL_BG; fg = COL_MUTED; break;
     case CS_MUTED: fg = COL_SOFT; break;
@@ -52,11 +47,53 @@ static void table_draw_cb(lv_event_t *e) {
     case CS_ST_ABORT: bg = COL_ABORT; fg = COL_ON_DARK; break;
     default: break;
   }
-  dsc->rect_dsc->bg_color = bg;
-  dsc->rect_dsc->bg_opa = LV_OPA_COVER;
-  dsc->rect_dsc->border_color = COL_BORDER;
-  dsc->label_dsc->color = fg;
-  dsc->label_dsc->align = (col == 0 && row != R_HEAD) ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER;
+  lv_obj_set_style_bg_color(s_cell[row][col], bg, 0);
+  lv_obj_set_style_text_color(s_lbl[row][col], fg, 0);
+}
+
+// Only touches the cell when its text or colour really changes
+static void set_cell(int row, int col, const char *txt, CellStyle st) {
+  if (strcmp(lv_label_get_text(s_lbl[row][col]), txt) != 0) lv_label_set_text(s_lbl[row][col], txt);
+  if (s_style[row][col] != st) {
+    s_style[row][col] = st;
+    apply_style(row, col, st);
+  }
+}
+
+static lv_obj_t *create_grid(lv_obj_t *parent) {
+  lv_obj_t *grid = lv_obj_create(parent);
+  lv_obj_remove_style_all(grid);
+  lv_obj_set_size(grid, COL0_W + NUM_CH * COL_W, ROWS * ROW_H);
+  lv_obj_set_style_border_width(grid, 1, 0);
+  lv_obj_set_style_border_side(grid, (lv_border_side_t)(LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_LEFT), 0);
+  lv_obj_set_style_border_color(grid, COL_BORDER, 0);
+  lv_obj_clear_flag(grid, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+
+  for (int r = 0; r < ROWS; r++) {
+    for (int c = 0; c < COLS; c++) {
+      lv_obj_t *cell = lv_obj_create(grid);
+      lv_obj_remove_style_all(cell);
+      lv_obj_set_size(cell, c == 0 ? COL0_W : COL_W, ROW_H);
+      lv_obj_set_pos(cell, c == 0 ? 0 : COL0_W + (c - 1) * COL_W, r * ROW_H);
+      lv_obj_set_style_bg_opa(cell, LV_OPA_COVER, 0);
+      lv_obj_set_style_border_width(cell, 1, 0);
+      lv_obj_set_style_border_side(cell, (lv_border_side_t)(LV_BORDER_SIDE_RIGHT | LV_BORDER_SIDE_BOTTOM), 0);
+      lv_obj_set_style_border_color(cell, COL_BORDER, 0);
+      lv_obj_clear_flag(cell, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+
+      lv_obj_t *lbl = lv_label_create(cell);
+      lv_label_set_text(lbl, "");
+      lv_obj_set_style_text_font(lbl, FONT_S, 0);
+      if (c == 0 && r != R_HEAD) lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 8, 0);
+      else lv_obj_center(lbl);
+
+      s_cell[r][c] = cell;
+      s_lbl[r][c] = lbl;
+      s_style[r][c] = CS_PLAIN;
+      apply_style(r, c, CS_PLAIN);
+    }
+  }
+  return grid;
 }
 
 static void step_cell(int row, int col, StepState s) {
@@ -138,7 +175,6 @@ static void refresh() {
   } else {
     set_cell(R_HEAD, 0, "READY", CS_ST_IDLE);
   }
-  lv_obj_invalidate(s_table);
 
   ui_btn_set_enabled(s_btn_back, !running && !s_started);
   ui_btn_set_enabled(s_btn_start, !running && !s_started);
@@ -263,27 +299,9 @@ void ui_show_test() {
   ui_header(scr, title);
   ui_set_current(UI_TEST);
 
-  s_table = lv_table_create(scr);
-  lv_table_set_col_cnt(s_table, COLS);
-  lv_table_set_row_cnt(s_table, ROWS);
-  lv_table_set_col_width(s_table, 0, 160);
-  for (int c = 1; c < COLS; c++) lv_table_set_col_width(s_table, c, 124);
-  lv_obj_set_style_text_font(s_table, FONT_S, LV_PART_ITEMS);
-  lv_obj_set_style_pad_top(s_table, 7, LV_PART_ITEMS);
-  lv_obj_set_style_pad_bottom(s_table, 7, LV_PART_ITEMS);
-  lv_obj_set_style_text_color(s_table, COL_TEXT, LV_PART_ITEMS);
-  lv_obj_set_style_pad_left(s_table, 8, LV_PART_ITEMS);
-  lv_obj_set_style_pad_right(s_table, 4, LV_PART_ITEMS);
-  lv_obj_set_style_border_width(s_table, 1, LV_PART_ITEMS);
-  lv_obj_set_style_pad_all(s_table, 0, 0);
-  lv_obj_set_style_border_width(s_table, 1, 0);
-  lv_obj_set_style_border_color(s_table, COL_BORDER, 0);
-  lv_obj_set_style_bg_color(s_table, COL_CARD, 0);
-  lv_obj_clear_flag(s_table, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_align(s_table, LV_ALIGN_TOP_MID, 0, HEADER_H + 8);
-  lv_obj_add_event_cb(s_table, table_draw_cb, LV_EVENT_DRAW_PART_BEGIN, nullptr);
+  lv_obj_t *grid = create_grid(scr);
+  lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, HEADER_H + 8);
 
-  memset(s_style, CS_PLAIN, sizeof(s_style));
   for (int r = 1; r < ROWS; r++) set_cell(r, 0, ROW_NAMES[r], CS_LABEL);
   for (int c = 1; c < COLS; c++) {
     char name[8];

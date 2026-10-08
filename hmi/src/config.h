@@ -4,7 +4,7 @@
 // Firmware-wide constants. Change values here, not scattered in the code.
 // ---------------------------------------------------------------------------
 
-#define FW_VERSION "0.3.0"
+#define FW_VERSION "0.3.1"
 
 #define NUM_CH 5             // test channels (contactor slots)
 #define MAX_MODELS 8
@@ -24,7 +24,7 @@
 #define OFF_CURRENT_MAX_A 0.02f
 
 // Max cycles per unit (the Results sheet has columns for this many cycles)
-#define MAX_CYCLES 10
+#define MAX_CYCLES 5
 
 // Finished units waiting in RAM until loop() moves them to the flash queue
 #define RESULT_QUEUE_LEN 10
