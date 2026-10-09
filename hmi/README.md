@@ -51,7 +51,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 5. **SAVE** (enabled when every channel has finished, or after STOP ALL) sends the batch to the
    Google Sheet. Results stay in RAM until then; nothing is uploaded during a test.
 6. **HOME** goes back to the model page for the next batch. If the batch was not saved it asks
-   first, and **DON'T SAVE** throws the results away.
+   first ("Google Sheet not synced"): **OK, SKIP** throws the results away, **CANCEL** stays on the page.
 7. While a channel rests between cycles its Status shows **WAIT**, and **RUN** again when the next cycle starts.
 8. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
 

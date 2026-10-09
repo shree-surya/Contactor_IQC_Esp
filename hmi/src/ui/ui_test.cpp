@@ -296,8 +296,8 @@ static void save_cb(lv_event_t *) {
 }
 
 // ---------------------------------------------------------------------------
-// HOME: back to the model / serial page for the next batch. Unsaved results
-// need a confirmation, then they are discarded.
+// HOME interlock: after SAVE it goes straight to the model / serial page.
+// Without SAVE it asks first: OK skips (results discarded), CANCEL stays here.
 // ---------------------------------------------------------------------------
 
 static lv_obj_t *s_confirm_ov = nullptr;
@@ -335,17 +335,17 @@ static void home_cb(lv_event_t *) {
   s_confirm_ov = overlay();
   lv_obj_t *p = panel(s_confirm_ov, 500, 240);
   lv_obj_t *t = lv_label_create(p);
-  lv_label_set_text(t, LV_SYMBOL_WARNING "  Results not saved");
+  lv_label_set_text(t, LV_SYMBOL_WARNING "  Google Sheet not synced");
   lv_obj_set_style_text_font(t, FONT_L, 0);
   lv_obj_set_style_text_color(t, COL_WARN_TXT, 0);
   lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 4);
   lv_obj_t *m = lv_label_create(p);
-  lv_label_set_text(m, "Go home without sending this batch\nto the Google Sheet?");
+  lv_label_set_text(m, "This batch is not saved.\nSkip it and go home?");
   lv_obj_set_style_text_align(m, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(m, LV_ALIGN_TOP_MID, 0, 52);
   lv_obj_t *c = ui_btn(p, "CANCEL", COL_NEUTRAL, 200, BTN_H, cancel_cb, nullptr);
   lv_obj_align(c, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-  lv_obj_t *d = ui_btn(p, "DON'T SAVE", COL_FAIL, 200, BTN_H, discard_cb, nullptr);
+  lv_obj_t *d = ui_btn(p, "OK, SKIP", COL_FAIL, 200, BTN_H, discard_cb, nullptr);
   lv_obj_align(d, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 }
 
