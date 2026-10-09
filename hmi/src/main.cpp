@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <lvgl.h>
+#include <esp_heap_caps.h>
 
 #include "config.h"
 #include "app_data.h"
@@ -15,6 +16,13 @@
 #include "ui/ui.h"
 
 void setup() {
+  // The RGB panel streams its frame buffer out of PSRAM all the time. By
+  // default every malloc above 4 KB (WiFi and TLS buffers, JSON documents)
+  // also lands in PSRAM, so an upload competes with the panel for the same
+  // bus and the picture glitches. Prefer internal RAM up to 64 KB; it falls
+  // back to PSRAM automatically when internal RAM is short.
+  heap_caps_malloc_extmem_enable(64 * 1024);
+
   Serial.begin(115200);
   delay(200);
   Serial.println("\nContactor IQC HMI " FW_VERSION);

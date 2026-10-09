@@ -4,7 +4,7 @@
 // Firmware-wide constants. Change values here, not scattered in the code.
 // ---------------------------------------------------------------------------
 
-#define FW_VERSION "0.3.4"
+#define FW_VERSION "0.3.5"
 
 #define NUM_CH 5             // test channels (contactor slots)
 #define MAX_MODELS 8
@@ -25,6 +25,10 @@
 
 // Max cycles per unit (the Results sheet has columns for this many cycles)
 #define MAX_CYCLES 5
+
+// RGB panel pixel clock. 15 MHz = ~31 frames/s. If the picture still
+// glitches during Sheet uploads, try 14000000 or 12000000 (less PSRAM load).
+#define PANEL_PCLK_HZ 15000000
 
 // Finished units waiting in RAM until loop() moves them to the flash queue
 #define RESULT_QUEUE_LEN 10
