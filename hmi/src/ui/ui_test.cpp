@@ -24,10 +24,11 @@ static const lv_coord_t COL0_W = 160, COL_W = 124, ROW_H = 34;
 
 static lv_obj_t *s_cell[ROWS][COLS];
 static lv_obj_t *s_lbl[ROWS][COLS];
-static lv_obj_t *s_btn_back, *s_btn_start, *s_btn_stop, *s_btn_next;
+static lv_obj_t *s_btn_back, *s_btn_start, *s_btn_stop, *s_btn_save, *s_btn_home;
 static lv_timer_t *s_timer = nullptr;
 static uint8_t s_style[ROWS][COLS];
 static bool s_started = false;
+static bool s_saved = false;  // SAVE pressed for this batch
 
 static void apply_style(int row, int col, CellStyle st) {
   lv_color_t bg = (row % 2) ? COL_CARD : COL_ROW_ALT, fg = COL_TEXT;
@@ -179,7 +180,8 @@ static void refresh() {
   ui_btn_set_enabled(s_btn_back, !running && !s_started);
   ui_btn_set_enabled(s_btn_start, !running && !s_started);
   ui_btn_set_enabled(s_btn_stop, running);
-  ui_btn_set_enabled(s_btn_next, !running && s_started);
+  ui_btn_set_enabled(s_btn_save, !running && s_started && !s_saved);
+  ui_btn_set_enabled(s_btn_home, !running && s_started);
 }
 
 static void timer_cb(lv_timer_t *) { refresh(); }
@@ -205,14 +207,38 @@ static void stop_cb(lv_event_t *) {
 }
 
 // ---------------------------------------------------------------------------
-// NEXT BATCH: wait for this batch's rows to reach the Google Sheet, then go
-// back to the model / serial page. Offline, rows stay queued on the panel.
+// SAVE: the operator decides whether this batch goes to the Google Sheet.
+// Finished units wait in RAM during the test (writing flash while the panel
+// is drawing makes the screen glitch); SAVE stores them in the upload queue
+// and uploads them. Offline, they stay queued and upload automatically later.
 // ---------------------------------------------------------------------------
 
 static const uint32_t SYNC_TIMEOUT_MS = 20000;
 static lv_obj_t *s_sync_ov = nullptr, *s_sync_lbl = nullptr, *s_sync_spin = nullptr;
 static uint32_t s_sync_t0 = 0;
 static int s_sync_phase = 0;  // 0 = uploading, 1 = success shown, 2 = offline note shown
+
+static lv_obj_t *overlay() {
+  lv_obj_t *ov = lv_obj_create(lv_layer_top());
+  lv_obj_set_size(ov, SCR_W, SCR_H);
+  lv_obj_set_style_bg_color(ov, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(ov, LV_OPA_50, 0);
+  lv_obj_set_style_radius(ov, 0, 0);
+  lv_obj_set_style_border_width(ov, 0, 0);
+  lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
+  return ov;
+}
+
+static lv_obj_t *panel(lv_obj_t *ov, lv_coord_t w, lv_coord_t h) {
+  lv_obj_t *p = lv_obj_create(ov);
+  lv_obj_set_size(p, w, h);
+  lv_obj_center(p);
+  lv_obj_set_style_border_side(p, LV_BORDER_SIDE_TOP, 0);
+  lv_obj_set_style_border_width(p, 4, 0);
+  lv_obj_set_style_border_color(p, COL_ACCENT, 0);
+  lv_obj_clear_flag(p, LV_OBJ_FLAG_SCROLLABLE);
+  return p;
+}
 
 static void sync_msg(const char *txt, lv_color_t color) {
   lv_label_set_text(s_sync_lbl, txt);
@@ -229,7 +255,7 @@ static void sync_timer_cb(lv_timer_t *t) {
       sync_msg("Results saved on the panel.\nGoogle Sheet is not configured.", COL_MUTED);
       s_sync_phase = 2;
     } else if (gsheets_pending_count() == 0) {
-      sync_msg(LV_SYMBOL_OK "  Upload successful", COL_GREEN);
+      sync_msg(LV_SYMBOL_OK "  Saved to Google Sheet", COL_GREEN);
       s_sync_phase = 1;
     } else if (el > SYNC_TIMEOUT_MS) {
       sync_msg(LV_SYMBOL_WARNING "  No connection.\nResults are saved on the panel\nand will upload automatically.", COL_WARN_TXT);
@@ -241,33 +267,24 @@ static void sync_timer_cb(lv_timer_t *t) {
   lv_timer_del(t);
   lv_obj_del(s_sync_ov);
   s_sync_ov = nullptr;
-  ui_show_model();
 }
 
-static void show_sync_popup() {
-  s_sync_ov = lv_obj_create(lv_layer_top());
-  lv_obj_set_size(s_sync_ov, SCR_W, SCR_H);
-  lv_obj_set_style_bg_color(s_sync_ov, lv_color_black(), 0);
-  lv_obj_set_style_bg_opa(s_sync_ov, LV_OPA_50, 0);
-  lv_obj_set_style_radius(s_sync_ov, 0, 0);
-  lv_obj_set_style_border_width(s_sync_ov, 0, 0);
-  lv_obj_clear_flag(s_sync_ov, LV_OBJ_FLAG_SCROLLABLE);
+static void save_cb(lv_event_t *) {
+  ResultRow row;
+  while (rig_pop_result(&row)) gsheets_enqueue(row);
+  s_saved = true;
+  ui_btn_set_enabled(s_btn_save, false);
+  lv_label_set_text(lv_obj_get_child(s_btn_save, 0), LV_SYMBOL_OK " SAVED");
 
-  lv_obj_t *panel = lv_obj_create(s_sync_ov);
-  lv_obj_set_size(panel, 460, 230);
-  lv_obj_center(panel);
-  lv_obj_set_style_border_side(panel, LV_BORDER_SIDE_TOP, 0);
-  lv_obj_set_style_border_width(panel, 4, 0);
-  lv_obj_set_style_border_color(panel, COL_ACCENT, 0);
-  lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
-
-  s_sync_spin = lv_spinner_create(panel, 1000, 60);
+  s_sync_ov = overlay();
+  lv_obj_t *p = panel(s_sync_ov, 460, 230);
+  s_sync_spin = lv_spinner_create(p, 1000, 60);
   lv_obj_set_size(s_sync_spin, 70, 70);
   lv_obj_align(s_sync_spin, LV_ALIGN_TOP_MID, 0, 6);
   lv_obj_set_style_arc_color(s_sync_spin, COL_ACCENT, LV_PART_INDICATOR);
 
-  s_sync_lbl = lv_label_create(panel);
-  lv_label_set_text(s_sync_lbl, "Syncing with Google Sheet...");
+  s_sync_lbl = lv_label_create(p);
+  lv_label_set_text(s_sync_lbl, "Saving to Google Sheet...");
   lv_obj_set_style_text_font(s_sync_lbl, FONT_M, 0);
   lv_obj_set_style_text_align(s_sync_lbl, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(s_sync_lbl, LV_ALIGN_BOTTOM_MID, 0, -10);
@@ -278,7 +295,15 @@ static void show_sync_popup() {
   lv_timer_create(sync_timer_cb, 250, nullptr);
 }
 
-static void next_cb(lv_event_t *) {
+// ---------------------------------------------------------------------------
+// HOME: back to the model / serial page for the next batch. Unsaved results
+// need a confirmation, then they are discarded.
+// ---------------------------------------------------------------------------
+
+static lv_obj_t *s_confirm_ov = nullptr;
+
+static void go_home() {
+  rig_clear_results();
   // Keep the operator; the model, serials and ticks are chosen again for every batch
   g_app.modelIdx = -1;
   for (int i = 0; i < NUM_CH; i++) {
@@ -287,15 +312,48 @@ static void next_cb(lv_event_t *) {
   }
   bool none[NUM_CH] = {false};
   rig_reset(none);
-  ui_btn_set_enabled(s_btn_next, false);
-  show_sync_popup();
+  ui_show_model();
+}
+
+static void confirm_close() {
+  lv_obj_del(s_confirm_ov);
+  s_confirm_ov = nullptr;
+}
+
+static void discard_cb(lv_event_t *) {
+  confirm_close();
+  go_home();
+}
+
+static void cancel_cb(lv_event_t *) { confirm_close(); }
+
+static void home_cb(lv_event_t *) {
+  if (s_saved || rig_pending_count() == 0) {
+    go_home();
+    return;
+  }
+  s_confirm_ov = overlay();
+  lv_obj_t *p = panel(s_confirm_ov, 500, 240);
+  lv_obj_t *t = lv_label_create(p);
+  lv_label_set_text(t, LV_SYMBOL_WARNING "  Results not saved");
+  lv_obj_set_style_text_font(t, FONT_L, 0);
+  lv_obj_set_style_text_color(t, COL_WARN_TXT, 0);
+  lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 4);
+  lv_obj_t *m = lv_label_create(p);
+  lv_label_set_text(m, "Go home without sending this batch\nto the Google Sheet?");
+  lv_obj_set_style_text_align(m, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_align(m, LV_ALIGN_TOP_MID, 0, 52);
+  lv_obj_t *c = ui_btn(p, "CANCEL", COL_NEUTRAL, 200, BTN_H, cancel_cb, nullptr);
+  lv_obj_align(c, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  lv_obj_t *d = ui_btn(p, "DON'T SAVE", COL_FAIL, 200, BTN_H, discard_cb, nullptr);
+  lv_obj_align(d, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 }
 
 void ui_show_test() {
   lv_obj_t *scr = ui_screen_create();
   const ModelSpec &m = g_models[g_app.modelIdx];
   char title[120];
-  snprintf(title, sizeof(title), "%s  |  %s", g_app.operatorName, m.name);
+  snprintf(title, sizeof(title), "Login by: %s  |  %s", g_app.operatorName, m.name);
   ui_header(scr, title);
   ui_set_current(UI_TEST);
 
@@ -310,12 +368,14 @@ void ui_show_test() {
   }
 
   lv_obj_t *f = ui_footer(scr);
-  s_btn_back = ui_btn(f, LV_SYMBOL_LEFT " BACK", COL_NEUTRAL, 170, BTN_H, back_cb, nullptr);
-  s_btn_start = ui_btn(f, LV_SYMBOL_PLAY " START", COL_OK, 190, BTN_H, start_cb, nullptr);
-  s_btn_stop = ui_btn(f, LV_SYMBOL_STOP " STOP ALL", COL_FAIL, 200, BTN_H, stop_cb, nullptr);
-  s_btn_next = ui_btn(f, "NEXT BATCH " LV_SYMBOL_RIGHT, COL_PRIMARY, 190, BTN_H, next_cb, nullptr);
+  s_btn_back = ui_btn(f, LV_SYMBOL_LEFT " BACK", COL_NEUTRAL, 136, BTN_H, back_cb, nullptr);
+  s_btn_start = ui_btn(f, LV_SYMBOL_PLAY " START", COL_OK, 150, BTN_H, start_cb, nullptr);
+  s_btn_stop = ui_btn(f, LV_SYMBOL_STOP " STOP ALL", COL_FAIL, 172, BTN_H, stop_cb, nullptr);
+  s_btn_save = ui_btn(f, LV_SYMBOL_UPLOAD " SAVE", COL_HEADER, 142, BTN_H, save_cb, nullptr);
+  s_btn_home = ui_btn(f, LV_SYMBOL_HOME " HOME", COL_PRIMARY, 142, BTN_H, home_cb, nullptr);
 
   s_started = false;
+  s_saved = false;
   rig_reset(g_app.chEnabled);
   refresh();
   s_timer = lv_timer_create(timer_cb, 150, nullptr);

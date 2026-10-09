@@ -534,7 +534,7 @@ static void task(void *) {
       continue;
     }
     // TLS uploads load the CPU and PSRAM bus that also feed the RGB panel, so
-    // rows wait in flash until the batch ends (NEXT BATCH uploads them).
+    // nothing is sent until the batch ends.
     if (s_hold) {
       set_status("Paused (test running)");
       continue;

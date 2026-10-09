@@ -246,6 +246,7 @@ static void tick_channel(int ch, uint32_t now) {
           set_event("CH%d cycle %d/%d PASS", ch + 1, v.cycle, m.cycles);
           r.t0 = now;
           r.ph = P_GAP;
+          v.status = CH_WAITING;  // resting until the next cycle starts
         }
       }
       break;
@@ -289,6 +290,7 @@ void rig_reset(const bool enabled[NUM_CH]) {
 void rig_start(const ModelSpec *spec, const bool enabled[NUM_CH]) {
   if (rig_running()) return;
   rig_reset(enabled);
+  rig_clear_results();
   memset(s_cyc, 0, sizeof(s_cyc));
   s_spec = spec;
   hw_sim_set_spec(spec);
@@ -348,6 +350,11 @@ int rig_round() {
 const char *rig_last_event() { return s_event; }
 
 int rig_pending_count() { return s_qCount; }
+
+void rig_clear_results() {
+  s_qHead = 0;
+  s_qCount = 0;
+}
 
 bool rig_pop_result(ResultRow *out) {
   if (s_qCount == 0) return false;

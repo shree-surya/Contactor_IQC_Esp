@@ -61,7 +61,9 @@ int rig_round();
 const char *rig_last_event();
 
 int rig_pending_count();
+// Finished units wait here (RAM only) until the operator presses SAVE
 bool rig_pop_result(ResultRow *out);
+void rig_clear_results();  // operator chose not to save
 
 // Admin / manual mode (only while no batch is running)
 bool rig_manual_relay(int ch, bool on);

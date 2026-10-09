@@ -31,10 +31,6 @@ void loop() {
   rig_tick();
   gsheets_set_hold(rig_running());
 
-  // Every finished unit becomes one row for the "Results" sheet
-  ResultRow row;
-  while (rig_pop_result(&row)) gsheets_enqueue(row);
-
   // Swap in freshly synced specs/operators only when no test is affected
   if (gsheets_has_new_data() && ui_can_apply_data()) {
     gsheets_apply_new_data();

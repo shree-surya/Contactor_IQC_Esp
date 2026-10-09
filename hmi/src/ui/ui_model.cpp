@@ -224,7 +224,7 @@ static lv_obj_t *make_row(lv_obj_t *parent, lv_coord_t h) {
 void ui_show_model() {
   lv_obj_t *scr = ui_screen_create();
   char title[80];
-  snprintf(title, sizeof(title), "Operator: %s", g_app.operatorName);
+  snprintf(title, sizeof(title), "Login by: %s", g_app.operatorName);
   ui_header(scr, title);
   ui_set_current(UI_MODEL);
 

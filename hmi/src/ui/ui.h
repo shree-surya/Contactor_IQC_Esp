@@ -3,7 +3,7 @@
 #include "ui_theme.h"
 
 // Screen flow:
-//   Login -> Model & Serials -> Test -> (Next batch) -> Model & Serials
+//   Login -> Model & Serials -> Test -> (SAVE, HOME) -> Model & Serials
 //   Login -> Setup (view specs / operators / status)
 //   Login -> Admin (password) -> WiFi / Manual relay / System
 void ui_init();

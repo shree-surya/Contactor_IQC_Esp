@@ -105,7 +105,7 @@ static void try_login() {
   if (!login_ready()) return;
   int op = (int)lv_dropdown_get_selected(s_dd) - 1;
   if (op < 0 || op >= g_operatorCount) {
-    show_msg("Select your name", COL_FAIL);
+    show_msg("Select your username", COL_FAIL);
     return;
   }
   if (!app_data_check_password(op, lv_textarea_get_text(s_pw))) {
@@ -173,13 +173,13 @@ void ui_show_login() {
   lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *t = lv_label_create(card);
-  lv_label_set_text(t, "Operator Login");
+  lv_label_set_text(t, "Login");
   lv_obj_set_style_text_font(t, FONT_L, 0);
   lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 0);
 
   // "-- Select --" followed by one line per operator
   static char opts[(NAME_MAX_LEN + 2) * (MAX_OPERATORS + 1)];
-  strlcpy(opts, "-- Select operator --", sizeof(opts));
+  strlcpy(opts, "-- Select Username --", sizeof(opts));
   uint16_t preselect = 0;
   for (int i = 0; i < g_operatorCount; i++) {
     strlcat(opts, "\n", sizeof(opts));

@@ -20,7 +20,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 |---|---|
 | ![Login](docs/screenshots/1_login.png) | ![Model & serials](docs/screenshots/2_model_serials.png) |
 | ![Keyboard](docs/screenshots/3_keyboard.png) | ![Test running](docs/screenshots/4_test_running.png) |
-| ![Test done](docs/screenshots/5_test_done_with_fail.png) | ![Next batch upload](docs/screenshots/6_next_batch_upload.png) |
+| ![HOME without saving](docs/screenshots/5_test_done_with_fail.png) | ![Saved](docs/screenshots/6_saved.png) |
 | ![Setup](docs/screenshots/7_setup.png) | ![Admin](docs/screenshots/8_admin_wifi.png) |
 
 ## Flashing (first time)
@@ -48,11 +48,14 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 3. **PROCEED → START.** Channels start 1.5 s apart, each runs 5 cycles, and about 2% of
    simulated cycles get a random fault, so you will see the occasional FAIL.
 4. **STOP ALL** switches everything off and marks the unfinished steps `-NA-`.
-5. **NEXT BATCH** keeps operator and model and clears the serials.
-6. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
+5. **SAVE** (enabled when every channel has finished, or after STOP ALL) sends the batch to the
+   Google Sheet. Results stay in RAM until then; nothing is uploaded during a test.
+6. **HOME** goes back to the model page for the next batch. If the batch was not saved it asks
+   first, and **DON'T SAVE** throws the results away.
+7. While a channel rests between cycles its Status shows **WAIT**, and **RUN** again when the next cycle starts.
+8. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
 
-The upload icon in the header counts result rows waiting to be sent to Google Sheets.
-Rows are queued in flash and uploaded in the background; Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
+Saved rows are queued in flash and uploaded in the background (offline they wait for WiFi); Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
 
 ## If something looks wrong
 
