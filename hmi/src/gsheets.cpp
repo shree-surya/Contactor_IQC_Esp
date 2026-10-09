@@ -37,7 +37,14 @@ static const int UPLOAD_BATCH = 10;
 static const uint32_t RETRY_MS = 30000;
 
 static SemaphoreHandle_t s_mtx;
-static int s_pending = 0;
+static int s_pending = 0;  // rows in the flash queue
+// Rows from SAVE wait in RAM and are uploaded from there. Flash is written only
+// if they can't be sent: flash writes stall the PSRAM bus that feeds the RGB
+// panel and make the screen glitch.
+static String s_ram[UPLOAD_BATCH];
+static int s_ramN = 0;
+static uint32_t s_ramSince = 0;
+static const uint32_t RAM_HOLD_MS = 20000;  // then keep them in flash anyway (= SAVE popup timeout)
 static bool s_syncReq = true;  // sync once after boot
 static bool s_syncedOnce = false;  // Specs/Operators read successfully since boot
 static bool s_syncErr = false;     // last sync attempt failed
@@ -396,16 +403,16 @@ static bool do_sync() {
 }
 
 // ---------------------------------------------------------------------------
-// Results queue (one JSON array per line in /queue.txt)
+// Results queue: RAM first, flash (/queue_v2.txt, one JSON array per line) when offline
 // ---------------------------------------------------------------------------
 
 // Results row: S.No, Serial, Timestamp, Operator, Model, Channel, Overall,
 // Fail Step, then 7 columns per cycle (Open, Inrush A, Inrush P/F, Cont A,
 // Cont P/F, Continuity, Release). A leading ' makes Sheets keep the text
 // exactly as sent (no date/number guessing).
-void gsheets_enqueue(const ResultRow &r) {
-  char ts[24], ch[4];
-  gsheets_now_str(ts, sizeof(ts));
+static String row_line(const ResultRow &r) {
+  const char *ts = r.ts;
+  char ch[4];
   snprintf(ch, sizeof(ch), "%d", r.ch);
 
   JsonDocument doc;
@@ -430,14 +437,29 @@ void gsheets_enqueue(const ResultRow &r) {
   }
   String line;
   serializeJson(doc, line);
+  return line;
+}
 
-  Lock l;
+// Moves the RAM rows to the flash queue (call with the lock held)
+static void persist_ram() {
+  if (s_ramN == 0) return;
   File f = LittleFS.open(QUEUE_FILE, "a");
   if (f) {
-    f.println(line);
+    for (int i = 0; i < s_ramN; i++) f.println(s_ram[i]);
     f.close();
-    s_pending++;
+    s_pending += s_ramN;
   }
+  for (int i = 0; i < s_ramN; i++) s_ram[i] = String();
+  s_ramN = 0;
+}
+
+void gsheets_enqueue(const ResultRow &r) {
+  String line = row_line(r);
+  Lock l;
+  if (s_ramN == UPLOAD_BATCH) persist_ram();
+  if (s_ramN == 0) s_ramSince = millis();
+  s_ram[s_ramN++] = line;
+  s_nextTry = 0;
 }
 
 static int count_queue() {
@@ -470,10 +492,19 @@ static void queue_drop(int n) {
   s_pending = kept;
 }
 
+// Uploads the RAM rows if there are any, otherwise the oldest flash rows
 static bool upload_batch() {
   String lines[UPLOAD_BATCH];
   int n = 0;
+  bool fromRam = false;
   {
+    Lock l;
+    if (s_ramN > 0) {
+      for (; n < s_ramN; n++) lines[n] = s_ram[n];
+      fromRam = true;
+    }
+  }
+  if (!fromRam) {
     Lock l;
     File f = LittleFS.open(QUEUE_FILE, "r");
     while (f && f.available() && n < UPLOAD_BATCH) {
@@ -489,6 +520,7 @@ static bool upload_batch() {
     return true;
   }
 
+  // Rows with no clock time get the upload time
   char now[24];
   gsheets_now_str(now, sizeof(now));
   String offlineStamp = String("'") + now + "*";  // * = logged offline, this is the upload time
@@ -511,10 +543,22 @@ static bool upload_batch() {
   int code = api("POST", url, payload, resp);
   if (code != 200) {
     set_status(code == 403 ? "Error: Sheet not shared" : "Error: upload failed (%d)", code);
+    if (fromRam) {
+      Lock l;
+      persist_ram();
+    }
     return false;
   }
   Lock l;
-  queue_drop(n);
+  if (fromRam) {
+    // Rows added while uploading move up; the sent ones are dropped
+    if (n > s_ramN) n = s_ramN;
+    for (int i = n; i < s_ramN; i++) s_ram[i - n] = s_ram[i];
+    for (int i = s_ramN - n; i < s_ramN; i++) s_ram[i] = String();
+    s_ramN -= n;
+  } else {
+    queue_drop(n);
+  }
   return true;
 }
 
@@ -529,6 +573,13 @@ static void task(void *) {
   for (;;) {
     vTaskDelay(pdMS_TO_TICKS(1000));
 
+    {
+      // Saved rows that can't be sent soon go to flash so a power cut can't lose them
+      Lock l;
+      if (s_ramN > 0 && (WiFi.status() != WL_CONNECTED || !GS_CONFIGURED || millis() - s_ramSince > RAM_HOLD_MS)) {
+        persist_ram();
+      }
+    }
     if (WiFi.status() != WL_CONNECTED) {
       set_status(GS_CONFIGURED ? "Waiting for WiFi" : "Not configured (no secrets.h)");
       continue;
@@ -561,7 +612,7 @@ static void task(void *) {
     {
       Lock l;
       wantSync = s_syncReq;
-      haveRows = s_pending > 0;
+      haveRows = s_pending > 0 || s_ramN > 0;
     }
     if (!wantSync && !haveRows) {
       set_status("OK");
@@ -569,6 +620,7 @@ static void task(void *) {
     }
     if (!get_token()) {
       Lock l;
+      persist_ram();
       if (wantSync) s_syncErr = true;
       s_nextTry = millis() + RETRY_MS;
       continue;
@@ -650,7 +702,7 @@ void gsheets_apply_new_data() {
 
 int gsheets_pending_count() {
   Lock l;
-  return s_pending;
+  return s_pending + s_ramN;
 }
 
 bool gsheets_configured() { return GS_CONFIGURED; }

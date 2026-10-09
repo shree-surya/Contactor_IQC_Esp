@@ -208,13 +208,13 @@ static void stop_cb(lv_event_t *) {
 
 // ---------------------------------------------------------------------------
 // SAVE: the operator decides whether this batch goes to the Google Sheet.
-// Finished units wait in RAM during the test (writing flash while the panel
-// is drawing makes the screen glitch); SAVE stores them in the upload queue
-// and uploads them. Offline, they stay queued and upload automatically later.
+// Finished units wait in RAM during the test and are uploaded straight from
+// RAM (flash writes make the RGB panel glitch). Only if they can't be sent
+// are they stored in flash, and they upload automatically later.
 // ---------------------------------------------------------------------------
 
 static const uint32_t SYNC_TIMEOUT_MS = 20000;
-static lv_obj_t *s_sync_ov = nullptr, *s_sync_lbl = nullptr, *s_sync_spin = nullptr;
+static lv_obj_t *s_sync_ov = nullptr, *s_sync_lbl = nullptr;
 static uint32_t s_sync_t0 = 0;
 static int s_sync_phase = 0;  // 0 = uploading, 1 = success shown, 2 = offline note shown
 
@@ -243,7 +243,6 @@ static lv_obj_t *panel(lv_obj_t *ov, lv_coord_t w, lv_coord_t h) {
 static void sync_msg(const char *txt, lv_color_t color) {
   lv_label_set_text(s_sync_lbl, txt);
   lv_obj_set_style_text_color(s_sync_lbl, color, 0);
-  lv_obj_add_flag(s_sync_spin, LV_OBJ_FLAG_HIDDEN);
   lv_obj_center(s_sync_lbl);
   s_sync_t0 = millis();
 }
@@ -278,16 +277,13 @@ static void save_cb(lv_event_t *) {
 
   s_sync_ov = overlay();
   lv_obj_t *p = panel(s_sync_ov, 460, 230);
-  s_sync_spin = lv_spinner_create(p, 1000, 60);
-  lv_obj_set_size(s_sync_spin, 70, 70);
-  lv_obj_align(s_sync_spin, LV_ALIGN_TOP_MID, 0, 6);
-  lv_obj_set_style_arc_color(s_sync_spin, COL_ACCENT, LV_PART_INDICATOR);
-
+  // Static text, no spinner: an animation keeps redrawing the frame buffer
+  // while the upload is busy on the same memory bus
   s_sync_lbl = lv_label_create(p);
-  lv_label_set_text(s_sync_lbl, "Saving to Google Sheet...");
+  lv_label_set_text(s_sync_lbl, LV_SYMBOL_UPLOAD "  Saving to Google Sheet...\nPlease wait");
   lv_obj_set_style_text_font(s_sync_lbl, FONT_M, 0);
   lv_obj_set_style_text_align(s_sync_lbl, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_align(s_sync_lbl, LV_ALIGN_BOTTOM_MID, 0, -10);
+  lv_obj_center(s_sync_lbl);
 
   s_sync_phase = 0;
   s_sync_t0 = millis();

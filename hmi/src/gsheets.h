@@ -7,9 +7,10 @@
 //
 // - Reads "Specs" and "Operators" at boot and on SYNC NOW, caches them in
 //   flash (LittleFS) so the rig works offline with the last known data.
-// - Appends one "Results" row per channel per cycle. Rows are queued in flash
-//   first and uploaded by a background task, so nothing is lost while WiFi
-//   is down and the UI never waits on the network.
+// - Appends one "Results" row per unit when the operator presses SAVE. Rows
+//   are uploaded from RAM by a background task; only if that fails (no WiFi,
+//   error) are they kept in flash and retried, so nothing is lost and the
+//   screen isn't disturbed by flash writes in the normal case.
 //
 // Credentials come from include/secrets.h (git-ignored). Without that file
 // the link is disabled and the rig keeps working with built-in defaults.

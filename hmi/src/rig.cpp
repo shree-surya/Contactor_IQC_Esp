@@ -3,6 +3,7 @@
 #include <esp_system.h>
 #include "rig.h"
 #include "hw_sim.h"
+#include "gsheets.h"
 
 // Per-channel test sequence (one cycle):
 //   1. Open      relay OFF: contact must be open and coil current ~0
@@ -89,6 +90,7 @@ static void push_unit(int ch, const char *overall, const char *failStep) {
   r.ch = ch + 1;
   r.cycles = s_spec ? s_spec->cycles : 0;
   if (r.cycles > MAX_CYCLES) r.cycles = MAX_CYCLES;
+  gsheets_now_str(r.ts, sizeof(r.ts));
   strlcpy(r.overall, overall, sizeof(r.overall));
   strlcpy(r.failStep, failStep, sizeof(r.failStep));
   for (int i = 0; i < r.cycles; i++) {

@@ -42,6 +42,7 @@ struct ResultRow {
   char model[NAME_MAX_LEN + 1];
   uint8_t ch;
   uint8_t cycles;  // cycles configured for the model (columns written)
+  char ts[24];       // when the unit finished, "YYYY-MM-DD HH:MM:SS" or "NO TIME"
   char overall[10];  // PASS / FAIL / ABORTED
   char failStep[24];
   CycleResult cyc[MAX_CYCLES];

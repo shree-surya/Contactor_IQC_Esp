@@ -55,7 +55,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 7. While a channel rests between cycles its Status shows **WAIT**, and **RUN** again when the next cycle starts.
 8. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
 
-Saved rows are queued in flash and uploaded in the background (offline they wait for WiFi); Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
+Saved rows are uploaded straight from RAM; only if that fails are they kept in flash and retried automatically; Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
 
 ## If something looks wrong
 
