@@ -32,6 +32,7 @@
 static const char *QUEUE_FILE = "/queue_v2.txt";  // v2 = one row per unit
 static const char *QUEUE_TMP = "/queue_v2.tmp";
 static const char *CACHE_FILE = "/sheet_cache.json";
+static const char *CACHE_TMP = "/sheet_cache.tmp";
 static const char *TZ_INDIA = "IST-5:30";
 static const int UPLOAD_BATCH = 10;
 static const uint32_t RETRY_MS = 30000;
@@ -326,12 +327,22 @@ static void save_cache(JsonArray specRows, JsonArray opRows) {
   doc["specs"] = specRows;
   doc["operators"] = opRows;
   doc["synced"] = s_lastSync;
+  // Write a new file, then swap it in, so a power cut never leaves a half-written cache
   Lock l;
-  File f = LittleFS.open(CACHE_FILE, "w");
-  if (f) {
-    serializeJson(doc, f);
-    f.close();
-  }
+  File f = LittleFS.open(CACHE_TMP, "w");
+  if (!f) return;
+  serializeJson(doc, f);
+  f.close();
+  LittleFS.remove(CACHE_FILE);
+  LittleFS.rename(CACHE_TMP, CACHE_FILE);
+}
+
+// Finishes a file swap that a power cut interrupted: if only the new copy
+// exists it becomes the file, if both exist the old one is still complete.
+static void recover_swap(const char *file, const char *tmp) {
+  if (!LittleFS.exists(tmp)) return;
+  if (LittleFS.exists(file)) LittleFS.remove(tmp);
+  else LittleFS.rename(tmp, file);
 }
 
 static void load_cache() {
@@ -654,6 +665,8 @@ void gsheets_begin() {
   if (!LittleFS.begin(true)) {
     Serial.println("[sheets] LittleFS mount failed");
   }
+  recover_swap(CACHE_FILE, CACHE_TMP);
+  recover_swap(QUEUE_FILE, QUEUE_TMP);
   load_cache();
   s_pending = count_queue();
   Serial.printf("[sheets] %s, %d row(s) waiting\n", GS_CONFIGURED ? "configured" : "NOT configured", s_pending);
