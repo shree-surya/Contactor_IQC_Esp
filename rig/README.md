@@ -5,27 +5,37 @@ Relays, continuity inputs and the link to the HMI panel are added next.
 
 ## Wiring: logic side (all at 3.3 V)
 
-INA219 modules have two address jumpers (A0, A1), so one I2C bus can hold only 4 of
-them. The ESP32-S3 has two I2C controllers: CH1–CH4 go on bus A, CH5 on bus B.
+The ESP32-S3 has **two** I2C controllers:
 
-| INA219 pin | CH1–CH4 (bus A) | CH5 (bus B) |
-|---|---|---|
-| VCC | ESP32 **3V3** (not 5V) | ESP32 **3V3** |
-| GND | ESP32 GND | ESP32 GND |
-| SDA | GPIO **8** | GPIO **17** |
-| SCL | GPIO **9** | GPIO **18** |
+- **I2C0**: all 5 INA219 sensors (GPIO 8 / 9). The sub-board is the master.
+- **I2C1**: reserved for the link to the HMI panel (GPIO 17 / 18). The sub-board is a slave.
 
-Address jumpers (solder bridge on the back of the module):
+All five sensors share one bus, wired in parallel:
 
-| Channel | Bus | Jumper | Address |
+| INA219 pin | ESP32-S3 |
+|---|---|
+| VCC | **3V3** (not 5V) |
+| GND | GND |
+| SDA | GPIO **8** |
+| SCL | GPIO **9** |
+
+Address setting:
+
+| Channel | A0 | A1 | Address |
 |---|---|---|---|
-| CH1 | A | none | 0x40 |
-| CH2 | A | A0 | 0x41 |
-| CH3 | A | A1 | 0x44 |
-| CH4 | A | A0 + A1 | 0x45 |
-| CH5 | B | none | 0x40 |
+| CH1 | open | open | 0x40 |
+| CH2 | bridged | open | 0x41 |
+| CH3 | open | bridged | 0x44 |
+| CH4 | bridged | bridged | 0x45 |
+| CH5 | **wire to SDA** | open | 0x42 |
 
-The modules already have I2C pull-up resistors, so no extra resistors are needed.
+**CH5 (0x42):** leave both jumpers open. Solder a thin wire from the **A0 pad on the chip side**
+of the A0 jumper to the module's **SDA** pin. That is the pad *not* connected to VCC: check
+with a multimeter in continuity mode. This uses the INA219's "A0 = SDA" address option.
+If you'd rather not solder, a TCA9548A I2C multiplexer also works (ask before buying).
+
+Each module has its own 10 kΩ pull-ups. Five in parallel (2 kΩ) is fine for short wires;
+keep the sensor bus under ~50 cm in total.
 
 ## Wiring: coil side (12 V)
 
@@ -53,9 +63,8 @@ coil − ──► 12 V GND
 You should see:
 
 ```
-Bus A (SDA 8, SCL 9)  : 0x40 0x41 0x44 0x45
-Bus B (SDA 17, SCL 18): 0x40
-CH1  bus A  0x40  OK
+Sensor bus (SDA 8, SCL 9): 0x40 0x41 0x42 0x44 0x45
+CH1  0x40  OK
 ...
       CH1            CH2            CH3            CH4            CH5
  0.000A 12.01V   0.000A 12.02V   ...
@@ -65,7 +74,7 @@ Type in the Serial Monitor input box and press Enter:
 
 | Key | Action |
 |---|---|
-| `s` | scan both buses again |
+| `s` | scan the sensor bus again |
 | `1`…`5` | **peak test** on that channel: switch the coil on within 1 s; prints peak, average, samples/s |
 | `p` | pause / resume the live table |
 

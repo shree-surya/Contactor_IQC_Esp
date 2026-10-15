@@ -13,11 +13,10 @@
 #include "ina219.h"
 
 static TwoWire &busA = Wire;
-static TwoWire &busB = Wire1;
 static Ina219 s_ina[NUM_CH];
 static bool s_paused = false;
 
-static TwoWire *bus_of(int ch) { return SENSORS[ch].bus == 0 ? &busA : &busB; }
+static TwoWire *bus_of(int) { return &busA; }  // bus B is kept for the HMI link
 
 static void scan_bus(TwoWire &w, const char *name) {
   Serial.printf("%s:", name);
@@ -35,8 +34,7 @@ static void scan_bus(TwoWire &w, const char *name) {
 static void init_sensors() {
   for (int ch = 0; ch < NUM_CH; ch++) {
     bool ok = s_ina[ch].begin(bus_of(ch), SENSORS[ch].addr, SHUNT_OHM);
-    Serial.printf("CH%d  bus %c  0x%02X  %s\n", ch + 1, SENSORS[ch].bus ? 'B' : 'A', SENSORS[ch].addr,
-                  ok ? "OK" : "NOT FOUND");
+    Serial.printf("CH%d  0x%02X  %s\n", ch + 1, SENSORS[ch].addr, ok ? "OK" : "NOT FOUND");
   }
 }
 
@@ -86,9 +84,7 @@ void setup() {
   Serial.println("\nContactor IQC rig - INA219 test");
 
   busA.begin(BUS_A_SDA, BUS_A_SCL, I2C_HZ);
-  busB.begin(BUS_B_SDA, BUS_B_SCL, I2C_HZ);
-  scan_bus(busA, "Bus A (SDA 8, SCL 9)  ");
-  scan_bus(busB, "Bus B (SDA 17, SCL 18)");
+  scan_bus(busA, "Sensor bus (SDA 8, SCL 9)");
   init_sensors();
   Serial.println("Commands: s = scan, 1..5 = peak test, p = pause");
 }
@@ -97,8 +93,7 @@ void loop() {
   while (Serial.available()) {
     char c = Serial.read();
     if (c == 's') {
-      scan_bus(busA, "Bus A");
-      scan_bus(busB, "Bus B");
+      scan_bus(busA, "Sensor bus");
       init_sensors();
     } else if (c >= '1' && c <= '5') {
       peak_test(c - '1');
