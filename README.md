@@ -5,7 +5,7 @@ Incoming-quality-check rig for 12 V contactors, testing up to 5 contactors per b
 | Folder | Board | Status |
 |---|---|---|
 | [`hmi/`](hmi/README.md) | Elecrow CrowPanel 7" ESP32-S3 (DIS08070H V3.0): touch UI, WiFi, Google Sheets | UI + simulated rig ready |
-| `rig/` | ESP32-S3-DevKitC-1 sub-board: relays, 5× INA219, continuity inputs | planned |
+| [`rig/`](rig/README.md) | ESP32-S3-DevKitC-1 sub-board: relays, 5× INA219, continuity inputs | INA219 reading ready |
 
 ## Test sequence (per contactor, per cycle)
 
