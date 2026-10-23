@@ -14,7 +14,7 @@
 // SDA = 0x42 (see README).
 #define BUS_A_SDA 8
 #define BUS_A_SCL 9
-#define BUS_B_SDA 17  // HMI link (not used yet)
+#define BUS_B_SDA 17  // HMI link later; bench option for CH5 now
 #define BUS_B_SCL 18
 #define I2C_HZ 400000
 
@@ -29,6 +29,10 @@ static const SensorCfg SENSORS[NUM_CH] = {
     {0, 0x44},  // CH3: A1 bridged
     {0, 0x45},  // CH4: A0 + A1 bridged
     {0, 0x42},  // CH5: A0 wired to SDA (jumpers open)
+    // No soldering yet? Put CH5 on bus B instead (GPIO 17/18, no jumpers) by
+    // using this line in place of the one above. Bus B is needed for the HMI
+    // link later, so this is for bench testing only.
+    // {1, 0x40},
 };
 
 // Shunt resistor on the INA219 module. Stock modules: R100 = 0.1 ohm ->
