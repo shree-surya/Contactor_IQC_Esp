@@ -5,6 +5,8 @@
 // 2. Says READY - switch the coil power ON
 // 3. Recording starts by itself when current flows (in-rush captured from the start)
 // 4. Type s + Enter to stop: shows in-rush peak, continuous current and the in-rush curve
+//    (after 1 s the sensor switches to 128-sample hardware averaging, so a PWM /
+//     economizer coil current is averaged correctly)
 // 5. Type r + Enter to re-arm (or swap the sensor first: it is detected again)
 
 #include <Wire.h>
@@ -12,7 +14,7 @@
 #define SHUNT_OHM 0.1f       // 0.05f after fitting an R050 shunt
 #define TRIGGER_A 0.020f     // recording starts above 20 mA
 #define INRUSH_MS 1000       // in-rush window (stored at full speed)
-#define SETTLE_MS 2000       // continuous average starts here...
+#define SETTLE_MS 2000       // continuous average starts here (until s, or power off)
 #define MAX_SAMPLES 20000    // ~1 s at full speed
 
 TwoWire *bus = nullptr;
@@ -20,16 +22,23 @@ uint8_t addr = 0;
 int16_t buf[MAX_SAMPLES];    // raw shunt readings of the in-rush window
 uint32_t nBuf = 0;
 uint32_t t0 = 0;             // millis() when current started
-double contSum = 0;          // continuous window
+double contSum = 0;          // continuous window (hardware-averaged readings)
 uint32_t contN = 0;
 float contMin = 0, contMax = 0;
+double busSum = 0;           // bus voltage during the hold phase
+float busMin = 0;
+uint32_t offAt = 0;          // millis() after t0 when the current stopped (0 = still on)
+bool avgMode = false;
 enum State { NO_SENSOR, ARMED, RECORDING, DONE } state = NO_SENSOR;
 
 // ---------------- INA219 ----------------
 // Fast: shunt only, 9-bit (84 us per conversion), +-320 mV, continuous
 const uint16_t CFG_FAST = (3 << 11) | (0 << 3) | 5;
-// Normal: shunt + bus, 12-bit, 16 V range (used to read the bus voltage)
+// Normal: shunt + bus, 12-bit, 16 V range
 const uint16_t CFG_NORMAL = (3 << 11) | (3 << 7) | (3 << 3) | 7;
+// Averaging: shunt + bus, each 128 samples (68 ms) - a true average of a PWM
+// (economizer) coil current; one result every ~137 ms
+const uint16_t CFG_AVG = (3 << 11) | (15 << 7) | (15 << 3) | 7;
 
 bool wr16(uint8_t reg, uint16_t v) {
   bus->beginTransmission(addr);
@@ -94,6 +103,9 @@ void arm() {
   nBuf = 0;
   contSum = 0;
   contN = 0;
+  busSum = 0;
+  offAt = 0;
+  avgMode = false;
   state = ARMED;
   Serial.println("\n>>> READY - switch the coil power ON now <<<");
   Serial.println("    (type s + Enter to stop and show the results)");
@@ -101,14 +113,8 @@ void arm() {
 
 // ---------------- results ----------------
 void report() {
-  wr16(0x00, CFG_NORMAL);  // read the bus voltage once
-  delay(3);
-  uint16_t b = 0;
-  rd16(0x02, &b);
-  float busV = (b >> 3) * 0.004f;
   wr16(0x00, CFG_FAST);
-
-  uint32_t dur = millis() - t0;
+  uint32_t dur = offAt ? offAt : millis() - t0;
   float rate = nBuf * 1000.0f / INRUSH_MS;
   int16_t pk = 0;
   uint32_t pkIdx = 0;
@@ -124,12 +130,14 @@ void report() {
   Serial.printf("Recorded        : %.1f s   (%.0f samples/s in the in-rush window)\n", dur / 1000.0f, rate);
   Serial.printf("In-rush peak    : %.3f A  at %.1f ms%s\n", peakA, pkMs,
                 overRange ? "   <-- OVER RANGE (shunt too big for this peak)" : "");
-  if (contN)
-    Serial.printf("Continuous avg  : %.3f A  (min %.3f, max %.3f, from %d ms to %.1f s)\n", contSum / contN,
-                  contMin, contMax, SETTLE_MS, dur / 1000.0f);
-  else
-    Serial.printf("Continuous avg  : -- (stopped before %d ms, run longer)\n", SETTLE_MS);
-  Serial.printf("Bus voltage now : %.2f V\n", busV);
+  if (contN) {
+    Serial.printf("Continuous avg  : %.3f A  (min %.3f, max %.3f, %lu readings, %d ms to %.1f s)\n",
+                  contSum / contN, contMin, contMax, (unsigned long)contN, SETTLE_MS, dur / 1000.0f);
+    Serial.printf("Supply (hold)   : %.2f V avg, %.2f V min\n", busSum / contN, busMin);
+  } else {
+    Serial.printf("Continuous avg  : -- (power on for less than %d ms, run longer)\n", SETTLE_MS);
+  }
+  if (offAt) Serial.printf("Power went off  : at %.1f s (readings after that ignored)\n", offAt / 1000.0f);
 
   Serial.println("\nIn-rush curve (max per 25 ms):");
   for (int w = 0; w < INRUSH_MS / 25 && nBuf; w++) {
@@ -176,21 +184,39 @@ void loop() {
     }
   } else if (state == RECORDING) {
     uint32_t el = millis() - t0;
-    if (!readRaw(&raw)) return;
     if (el < INRUSH_MS) {
-      if (nBuf < MAX_SAMPLES) buf[nBuf++] = raw;
-    } else if (el >= SETTLE_MS) {
-      float a = toAmps(raw);
-      if (!contN) contMin = contMax = a;
+      // In-rush: fastest single readings, all stored
+      if (readRaw(&raw) && nBuf < MAX_SAMPLES) buf[nBuf++] = raw;
+      return;
+    }
+    if (!avgMode) {
+      wr16(0x00, CFG_AVG);  // from here on: hardware-averaged readings
+      avgMode = true;
+      delay(140);
+    }
+    // Hold phase: one averaged result about every 137 ms
+    static uint32_t lastRead = 0;
+    if (millis() - lastRead < 140) return;
+    lastRead = millis();
+    uint16_t b;
+    if (!readRaw(&raw) || !rd16(0x02, &b)) return;
+    float a = toAmps(raw), v = (b >> 3) * 0.004f;
+    Serial.printf("  t=%5.1f s   %.3f A   %.2f V\n", el / 1000.0f, a, v);
+
+    if (offAt) return;
+    if (a < TRIGGER_A) {  // power switched off: stop collecting
+      offAt = el;
+      Serial.println("  (current stopped - type s for the results)");
+      return;
+    }
+    if (el >= SETTLE_MS) {
+      if (!contN) { contMin = contMax = a; busMin = v; }
       contMin = min(contMin, a);
       contMax = max(contMax, a);
+      busMin = min(busMin, v);
       contSum += a;
+      busSum += v;
       contN++;
-    }
-    static uint32_t lastShow = 0;
-    if (millis() - lastShow >= 500) {
-      lastShow = millis();
-      Serial.printf("  t=%5.1f s   %.3f A\n", el / 1000.0f, toAmps(raw));
     }
   }
 }
