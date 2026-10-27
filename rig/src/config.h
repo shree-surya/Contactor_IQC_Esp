@@ -28,11 +28,10 @@ static const SensorCfg SENSORS[NUM_CH] = {
     {0, 0x41},  // CH2: A0 bridged
     {0, 0x44},  // CH3: A1 bridged
     {0, 0x45},  // CH4: A0 + A1 bridged
-    {0, 0x42},  // CH5: A0 wired to SDA (jumpers open)
-    // No soldering yet? Put CH5 on bus B instead (GPIO 17/18, no jumpers) by
-    // using this line in place of the one above. Bus B is needed for the HMI
-    // link later, so this is for bench testing only.
-    // {1, 0x40},
+    {1, 0x40},  // CH5: bus B (GPIO 17/18), no jumpers - bench setup
+    // Final setup (bus B is needed for the HMI link): CH5 on bus A with A0
+    // wired to SDA, i.e. use this line instead:
+    // {0, 0x42},
 };
 
 // Shunt resistor on the INA219 module. Stock modules: R100 = 0.1 ohm ->
