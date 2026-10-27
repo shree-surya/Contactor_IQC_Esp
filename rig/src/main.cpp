@@ -87,10 +87,14 @@ void setup() {
   Serial.println("\nContactor IQC rig - INA219 test");
 
   busA.begin(BUS_A_SDA, BUS_A_SCL, I2C_HZ);
+  // Fail fast: a stuck bus otherwise blocks ~1 s per address and the scan
+  // of 126 addresses looks like a frozen board for 2 minutes
+  busA.setTimeOut(20);
   scan_bus(busA, "Bus A (SDA 8, SCL 9)  ");
   for (int ch = 0; ch < NUM_CH; ch++) s_useB |= SENSORS[ch].bus == 1;
   if (s_useB) {
     busB.begin(BUS_B_SDA, BUS_B_SCL, I2C_HZ);
+    busB.setTimeOut(20);
     scan_bus(busB, "Bus B (SDA 17, SCL 18)");
   }
   init_sensors();
