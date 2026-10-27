@@ -1,5 +1,6 @@
 // Contactor IQC rig - INA219 test (single-file Arduino IDE version)
-// Board: ESP32-S3 Dev Module, USB CDC On Boot: Disabled, port = "USB for UART"
+// Board: ESP32-S3 Dev Module, USB CDC On Boot: Enabled, cable in "USB Native"
+// (the "USB for UART" port holds the chip in reset while a monitor is open)
 //
 // Reads 5 INA219s and prints current + bus voltage 5x per second.
 // Serial Monitor (115200): s = scan, 1..5 = 1 s peak test, p = pause

@@ -57,7 +57,11 @@ coil − ──► 12 V GND
 ## Flash and run
 
 1. VS Code → **File → Open Folder…** → select `rig`.
-2. Plug the USB cable into the port marked **UART** (or **COM**) on the DevKitC.
+2. Plug the USB cable into the **USB Native** port. On the 7Semi board the "USB for UART"
+   port holds the chip in reset while a Serial Monitor is open (LED freezes, no output).
+   Arduino IDE: board **ESP32S3 Dev Module**, **USB CDC On Boot: Enabled**, Flash 8MB,
+   PSRAM OPI. Single-file sketch: `arduino/rig_ina219_test/rig_ina219_test.ino`.
+   If an upload can't connect: hold BOOT, tap RST, release BOOT, upload again.
 3. Press **Upload** (→ in the bottom bar), then the **Serial Monitor** (plug icon).
 
 You should see:
