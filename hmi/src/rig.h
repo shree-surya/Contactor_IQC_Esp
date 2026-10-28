@@ -56,6 +56,8 @@ void rig_start(const ModelSpec *spec, const bool enabled[NUM_CH]);
 void rig_stop_all();
 bool rig_running();
 bool rig_is_simulated();
+bool rig_hw_ok();            // rig board connected (always true in simulation)
+bool rig_channel_ok(int ch);  // that channel's current sensor is present
 
 const ChannelView &rig_channel(int ch);
 int rig_round();

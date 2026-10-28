@@ -2,10 +2,13 @@
 #include <stdarg.h>
 #include <esp_system.h>
 #include "rig.h"
-#include "hw_sim.h"
+#include "hw.h"
 #include "gsheets.h"
 
-// Per-channel test sequence (one cycle):
+// Per-channel test sequence (one cycle). Hardware: hw.h (real rig board over
+// I2C, or the simulation). Without contact inputs (hw_has_contacts() false)
+// Open and Release are judged on current only and Continuity is -NA-.
+//
 //   1. Open      relay OFF: contact must be open and coil current ~0
 //   2. In-rush   relay ON, peak current over the in-rush window
 //   3. Cont      average current from settleMs to settleMs + avgMs
@@ -147,7 +150,7 @@ static void begin_cycle(int ch, uint32_t now) {
   v.inrushMeasured = v.contMeasured = false;
   v.failStep[0] = '\0';
 
-  bool closed = hw_contact_closed(ch, now);
+  bool closed = hw_has_contacts() && hw_contact_closed(ch, now);
   float cur = hw_current(ch, now);
   if (closed || cur >= OFF_CURRENT_MAX_A) {
     fail(ch, &v.open, closed ? "Open (contact closed)" : "Open (current)", now);
@@ -174,12 +177,14 @@ static void tick_channel(int ch, uint32_t now) {
       if ((int32_t)(now - r.startAt) >= 0 && !inrush_busy(ch)) begin_cycle(ch, now);
       break;
 
-    case P_INRUSH:
+    case P_INRUSH: {
       if (cur > r.peak) r.peak = cur;
+      float hp = hw_peak(ch);  // rig board's fast peak, if available
+      if (hp > r.peak) r.peak = hp;
       v.inrushA = r.peak;
       if (now - r.relayOnAt >= m.inrushWinMs) {
         v.inrushMeasured = true;
-        if (r.peak >= CURRENT_RANGE_A - 0.01f) {
+        if (r.peak >= hw_range_a() - 0.01f) {
           fail(ch, &v.inrush, "In-rush OVER RANGE", now);
           break;
         }
@@ -193,16 +198,18 @@ static void tick_channel(int ch, uint32_t now) {
           v.inrush = ST_NA;  // measured, no limit for this model
         }
         v.cont = ST_RUN;
-        v.contin = ST_RUN;
+        v.contin = hw_has_contacts() ? ST_RUN : ST_NA;
         r.ph = P_SETTLE;
       }
       break;
+    }
 
     case P_SETTLE:
       if (now - r.relayOnAt >= m.settleMs) {
         r.sum = 0;
         r.n = 0;
         r.continDrop = false;
+        hw_stats_reset(ch);  // rig board averages the window from here
         r.ph = P_AVG;
       }
       break;
@@ -211,8 +218,10 @@ static void tick_channel(int ch, uint32_t now) {
       r.sum += cur;
       r.n++;
       v.contA = (float)(r.sum / r.n);
-      if (!hw_contact_closed(ch, now)) r.continDrop = true;
+      if (hw_has_contacts() && !hw_contact_closed(ch, now)) r.continDrop = true;
       if (now - r.relayOnAt >= (uint32_t)m.settleMs + m.avgMs) {
+        float ha = hw_avg(ch);  // rig board's average (handles PWM economizer coils)
+        if (ha >= 0) v.contA = ha;
         hw_relay(ch, false, now);
         v.contMeasured = true;
         if (v.contA < m.contLsl || v.contA > m.contUsl) {
@@ -224,7 +233,7 @@ static void tick_channel(int ch, uint32_t now) {
           fail(ch, &v.contin, "Continuity", now);
           break;
         }
-        v.contin = ST_PASS;
+        v.contin = hw_has_contacts() ? ST_PASS : ST_NA;
         v.release = ST_RUN;
         r.t0 = now;
         r.ph = P_RELEASE;
@@ -233,7 +242,7 @@ static void tick_channel(int ch, uint32_t now) {
 
     case P_RELEASE:
       if (now - r.t0 >= m.releaseMs) {
-        if (hw_contact_closed(ch, now) || cur >= OFF_CURRENT_MAX_A) {
+        if ((hw_has_contacts() && hw_contact_closed(ch, now)) || cur >= OFF_CURRENT_MAX_A) {
           fail(ch, &v.release, "Release", now);
           break;
         }
@@ -268,13 +277,20 @@ static void tick_channel(int ch, uint32_t now) {
 
 void rig_begin() {
   randomSeed(esp_random());
+  hw_begin();
   bool none[NUM_CH] = {false};
   rig_reset(none);
 }
 
 void rig_tick() {
-  if (!s_spec) return;
   uint32_t now = millis();
+  hw_poll(now);
+  if (!s_spec) return;
+  if (rig_running() && !hw_ok()) {
+    rig_stop_all();  // relays off, units marked ABORTED (rig board also switches off on its own)
+    set_event("Rig board link lost - test stopped");
+    return;
+  }
   for (int ch = 0; ch < NUM_CH; ch++) tick_channel(ch, now);
 }
 
@@ -337,7 +353,11 @@ bool rig_running() {
   return false;
 }
 
-bool rig_is_simulated() { return true; }
+bool rig_is_simulated() { return !RIG_LINK; }
+
+bool rig_hw_ok() { return hw_ok(); }
+
+bool rig_channel_ok(int ch) { return hw_channel_ok(ch); }
 
 const ChannelView &rig_channel(int ch) { return s_view[ch]; }
 

@@ -196,6 +196,16 @@ static void screen_deleted(lv_event_t *e) {
 static void back_cb(lv_event_t *) { ui_show_model(); }
 
 static void start_cb(lv_event_t *) {
+  if (!rig_hw_ok()) {
+    ui_toast("Rig board", "The rig board is not answering.\nCheck its power and the I2C cable to the panel.");
+    return;
+  }
+  for (int ch = 0; ch < NUM_CH; ch++) {
+    if (g_app.chEnabled[ch] && !rig_channel_ok(ch)) {
+      ui_toast("Rig board", "CH%d current sensor not found.\nCheck its wiring, or untick CH%d.", ch + 1, ch + 1);
+      return;
+    }
+  }
   rig_start(&g_models[g_app.modelIdx], g_app.chEnabled);
   s_started = true;
   refresh();

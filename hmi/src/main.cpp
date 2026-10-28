@@ -1,7 +1,7 @@
 // Contactor IQC Rig - HMI firmware (Elecrow CrowPanel 7" ESP32-S3)
 //
-// Touch UI + Google Sheets link. The test rig is still simulated (hw_sim.cpp)
-// until the ESP32-S3 sub-board is connected over I2C.
+// Touch UI + Google Sheets link. Test hardware: the rig board over I2C
+// (hw_link.cpp), or the built-in simulation with RIG_LINK 0 (hw_sim.cpp).
 
 #include <Arduino.h>
 #include <lvgl.h>

@@ -1,5 +1,11 @@
 #include <Arduino.h>
-#include "hw_sim.h"
+#include "config.h"
+#include "hw.h"
+
+#if !RIG_LINK
+// Simulated relays, INA219s and contact inputs: realistic in-rush / hold
+// current curves with noise and an occasional random fault, so the PASS and
+// FAIL paths of the UI can be exercised without hardware.
 
 enum Fault : uint8_t { F_NONE, F_INRUSH_HIGH, F_CONT_LOW, F_NO_CLOSE, F_WELD, F_CHATTER };
 
@@ -89,3 +95,15 @@ bool hw_contact_closed(int ch, uint32_t now) {
   }
   return (now - c.offAt) < 15;  // opening time
 }
+
+void hw_begin() {}
+void hw_poll(uint32_t) {}
+bool hw_ok() { return true; }
+bool hw_channel_ok(int) { return true; }
+bool hw_has_contacts() { return true; }
+float hw_range_a() { return CURRENT_RANGE_A; }
+void hw_stats_reset(int) {}
+float hw_peak(int) { return -1; }
+float hw_avg(int) { return -1; }
+
+#endif  // !RIG_LINK

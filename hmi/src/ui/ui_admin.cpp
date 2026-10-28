@@ -148,7 +148,7 @@ static void timer_cb(lv_timer_t *) {
                           "Free PSRAM:    %u bytes\n"
                           "Test rig:      %s",
                           (unsigned long)(millis() / 1000), (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram(),
-                          rig_is_simulated() ? "SIMULATION" : "sub-board");
+                          rig_is_simulated() ? "SIMULATION" : rig_hw_ok() ? "rig board connected" : "rig board NOT connected");
   }
 }
 
@@ -203,7 +203,7 @@ static void build_manual_tab(lv_obj_t *tab) {
   lv_obj_set_style_pad_row(tab, 6, 0);
 
   lv_obj_t *note = lv_label_create(tab);
-  lv_label_set_text(note, rig_is_simulated() ? "SIMULATION - sub-board not connected. Values are simulated."
+  lv_label_set_text(note, rig_is_simulated() ? "SIMULATION - no rig board. Values are simulated."
                                              : "Manual relay test. Only one relay at a time is recommended.");
   lv_obj_set_style_text_color(note, COL_MUTED, 0);
 

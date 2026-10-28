@@ -4,7 +4,7 @@
 // Firmware-wide constants. Change values here, not scattered in the code.
 // ---------------------------------------------------------------------------
 
-#define FW_VERSION "0.3.6"
+#define FW_VERSION "0.4.0"
 
 #define NUM_CH 5             // test channels (contactor slots)
 #define MAX_MODELS 8
@@ -16,9 +16,18 @@
 #define ADMIN_PASSWORD "100100"
 
 // INA219 with the stock 0.1 ohm shunt saturates at 3.2 A. Any peak at or above
-// this is reported as OVER RANGE (FAIL), never PASS. Raise it only after the
-// shunt has been changed (e.g. 6.4 A for 0.05 ohm, 9.6 A for 0.033 ohm).
+// this is reported as OVER RANGE (FAIL), never PASS. Used by the simulation;
+// the real rig board reports its own range (set SHUNT_OHM in its firmware).
 #define CURRENT_RANGE_A 3.2f
+
+// Test hardware: 1 = real rig board over I2C (rig/arduino/rig_firmware),
+// 0 = built-in simulation (no rig board needed, for UI demos)
+#ifndef RIG_LINK
+#define RIG_LINK 1
+#endif
+#define RIG_I2C_ADDR 0x30    // rig board I2C slave address
+#define RIG_I2C_HZ 100000    // link speed (cable between the boards)
+#define RIG_POLL_MS 40       // status read interval
 
 // Current below this counts as "coil off" for the Open and Release checks.
 #define OFF_CURRENT_MAX_A 0.02f

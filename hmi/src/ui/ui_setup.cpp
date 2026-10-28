@@ -121,7 +121,7 @@ static void refresh_status() {
                         "Firmware:       " FW_VERSION,
                         ssid[0] ? ssid : "(not set - see Admin)", net_connected() ? "connected" : "not connected",
                         net_rssi(), ip, gs, last, gsheets_pending_count(), now,
-                        rig_is_simulated() ? "SIMULATION (sub-board not connected)" : "connected");
+                        rig_is_simulated() ? "SIMULATION (no rig board)" : rig_hw_ok() ? "rig board connected" : "RIG BOARD NOT CONNECTED - check the I2C cable");
 }
 
 static void timer_cb(lv_timer_t *) { refresh_status(); }

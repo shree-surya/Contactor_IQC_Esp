@@ -1,41 +1,35 @@
-# Rig sub-board (ESP32-S3-DevKitC-1)
+# Rig board (ESP32-S3)
 
-Step 1: read the 5 INA219 current sensors and print them on the Serial Monitor.
-Relays, continuity inputs and the link to the HMI panel are added next.
+## Firmware for the real rig: `arduino/rig_firmware/rig_firmware.ino`
 
-## Wiring: logic side (all at 3.3 V)
+Reads the 5 INA219s, drives the 5 relays and answers the HMI panel over I2C
+(slave address 0x30). The HMI runs the test sequence. If the HMI stops talking
+for 1.5 s, all relays switch off.
 
-The ESP32-S3 has **two** I2C controllers:
-
-- **I2C0**: all 5 INA219 sensors (GPIO 8 / 9). The sub-board is the master.
-- **I2C1**: reserved for the link to the HMI panel (GPIO 17 / 18). The sub-board is a slave.
-
-All five sensors share one bus, wired in parallel:
-
-| INA219 pin | ESP32-S3 |
+| Function | ESP32-S3 pins |
 |---|---|
-| VCC | **3V3** (not 5V) |
-| GND | GND |
-| SDA | GPIO **8** |
-| SCL | GPIO **9** |
+| Sensors CH1..CH5 (0x40, 0x41, 0x44, 0x45, **0x42**) | SDA **GPIO 8**, SCL **GPIO 9**, 3V3, GND |
+| Link to the HMI panel | SDA **GPIO 17**, SCL **GPIO 18**, GND |
+| Relays IN1..IN5 (LOW = ON) | GPIO **4, 5, 6, 7, 15** |
 
-Address setting:
+CH5 must be at **0x42** on GPIO 8/9 (A0 wired to SDA), because GPIO 17/18 are
+now the HMI link. Arduino IDE: ESP32S3 Dev Module, USB CDC On Boot: Enabled,
+cable in the **USB Native** port.
 
-| Channel | A0 | A1 | Address |
-|---|---|---|---|
-| CH1 | open | open | 0x40 |
-| CH2 | bridged | open | 0x41 |
-| CH3 | open | bridged | 0x44 |
-| CH4 | bridged | bridged | 0x45 |
-| CH5 | **wire to SDA** | open | 0x42 |
+**HMI ↔ rig board cable** (CrowPanel I2C header → rig board):
+SDA IO19 → GPIO 17, SCL IO20 → GPIO 18, GND → GND. Do not connect the power
+pins; each board has its own supply. Keep the cable under ~50 cm.
 
-**CH5 (0x42):** leave both jumpers open. Solder a thin wire from the **A0 pad on the chip side**
-of the A0 jumper to the module's **SDA** pin. That is the pad *not* connected to VCC: check
-with a multimeter in continuity mode. This uses the INA219's "A0 = SDA" address option.
-If you'd rather not solder, a TCA9548A I2C multiplexer also works (ask before buying).
+## Bench / test sketches (`arduino/`)
 
-Each module has its own 10 kΩ pull-ups. Five in parallel (2 kΩ) is fine for short wires;
-keep the sensor bus under ~50 cm in total.
+| Sketch | Use |
+|---|---|
+| `ina219_capture` | one sensor: auto-detect, in-rush + hold report |
+| `ina219_capture5` | all 5 sensors in series: compares channels |
+| `relay_test` | toggle relays 1..5 from the Serial Monitor |
+| `rig_ina219_test` | live table of all 5 sensors |
+
+The PlatformIO project in this folder (`src/`) is the early INA219 bench test.
 
 ## Wiring: coil side (12 V)
 
