@@ -110,6 +110,10 @@ static void refresh_status() {
   gsheets_status(gs, sizeof(gs));
   gsheets_last_sync(last, sizeof(last));
   gsheets_now_str(now, sizeof(now));
+  char rig_txt[80];
+  if (rig_is_simulated()) strlcpy(rig_txt, "SIMULATION (no rig board)", sizeof(rig_txt));
+  else if (!rig_hw_ok()) strlcpy(rig_txt, "RIG BOARD NOT CONNECTED - check the I2C cable", sizeof(rig_txt));
+  else snprintf(rig_txt, sizeof(rig_txt), "rig board connected, %lu relay command errors", (unsigned long)rig_cmd_errors());
   lv_label_set_text_fmt(s_status_lbl,
                         "WiFi network:   %s\n"
                         "WiFi status:    %s (RSSI %d dBm)   IP %s\n"
@@ -121,7 +125,7 @@ static void refresh_status() {
                         "Firmware:       " FW_VERSION,
                         ssid[0] ? ssid : "(not set - see Admin)", net_connected() ? "connected" : "not connected",
                         net_rssi(), ip, gs, last, gsheets_pending_count(), now,
-                        rig_is_simulated() ? "SIMULATION (no rig board)" : rig_hw_ok() ? "rig board connected" : "RIG BOARD NOT CONNECTED - check the I2C cable");
+                        rig_txt);
 }
 
 static void timer_cb(lv_timer_t *) { refresh_status(); }

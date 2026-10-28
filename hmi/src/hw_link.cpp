@@ -27,6 +27,7 @@ static float s_rangeA = CURRENT_RANGE_A;
 static bool s_synced = false;      // counters aligned with the rig board
 static uint32_t s_lastOk = 0, s_lastPoll = 0;
 static uint32_t s_errors = 0;
+static uint32_t s_cmdErrors = 0;  // relay commands not acknowledged
 
 static bool send_cmd(uint8_t resetMask) {
   uint8_t cmd[3] = {0x01, s_relayMask, resetMask};
@@ -35,6 +36,8 @@ static bool send_cmd(uint8_t resetMask) {
     delayMicroseconds(500);
   }
   s_errors++;
+  s_cmdErrors++;
+  Serial.printf("[rig] relay command failed (mask %02X)\n", s_relayMask);
   return false;
 }
 
@@ -79,6 +82,7 @@ void hw_poll(uint32_t now) {
 }
 
 bool hw_ok() { return s_synced && millis() - s_lastOk < 1000; }
+uint32_t hw_cmd_errors() { return s_cmdErrors; }
 bool hw_channel_ok(int ch) { return hw_ok() && ((s_present >> ch) & 1); }
 bool hw_has_contacts() { return false; }  // continuity inputs not fitted yet
 float hw_range_a() { return s_rangeA; }

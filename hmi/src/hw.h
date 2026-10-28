@@ -11,6 +11,7 @@
 void hw_begin();
 void hw_poll(uint32_t now);      // call often; the link reads the rig board every RIG_POLL_MS
 bool hw_ok();                    // rig board answering (always true in simulation)
+uint32_t hw_cmd_errors();        // relay commands the rig board did not accept
 bool hw_channel_ok(int ch);      // current sensor of this channel present
 bool hw_has_contacts();          // contact (continuity) inputs fitted
 float hw_range_a();              // highest current the sensors can measure

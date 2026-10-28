@@ -99,6 +99,7 @@ bool hw_contact_closed(int ch, uint32_t now) {
 void hw_begin() {}
 void hw_poll(uint32_t) {}
 bool hw_ok() { return true; }
+uint32_t hw_cmd_errors() { return 0; }
 bool hw_channel_ok(int) { return true; }
 bool hw_has_contacts() { return true; }
 float hw_range_a() { return CURRENT_RANGE_A; }

@@ -50,6 +50,7 @@ struct ChStats {
 ChStats st[NCH];
 uint8_t relayMask = 0;
 volatile uint32_t lastMasterMs = 0;
+volatile uint32_t cmdCount = 0, readCount = 0;  // link diagnostics
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 bool printTable = false;
 
@@ -98,6 +99,7 @@ void onLinkReceive(int) {
   while (Wire1.available() && n < (int)sizeof(b)) b[n++] = Wire1.read();
   while (Wire1.available()) Wire1.read();
   lastMasterMs = millis();
+  cmdCount++;
   if (n >= 3 && b[0] == 0x01) {
     portENTER_CRITICAL(&mux);
     for (int i = 0; i < NCH; i++) {
@@ -140,6 +142,7 @@ void onLinkRequest() {
   p[PKT_LEN - 1] = sum;
   Wire1.write(p, PKT_LEN);
   lastMasterMs = millis();
+  readCount++;
 }
 
 // ---------------- main ----------------
@@ -187,6 +190,15 @@ void loop() {
   }
   hpos = (hpos + 1) & 7;
 
+  // Report relay changes (from the HMI or the keyboard)
+  static uint8_t shownMask = 0;
+  if (relayMask != shownMask) {
+    shownMask = relayMask;
+    Serial.printf("Relays now: CH1..CH5 = %d%d%d%d%d   (HMI commands received: %lu)\n", relayMask & 1,
+                  (relayMask >> 1) & 1, (relayMask >> 2) & 1, (relayMask >> 3) & 1, (relayMask >> 4) & 1,
+                  (unsigned long)cmdCount);
+  }
+
   // 2) Safety: HMI silent -> relays off
   if (relayMask && millis() - lastMasterMs > LINK_TIMEOUT_MS) {
     applyRelays(0);
@@ -216,6 +228,7 @@ void loop() {
       if (st[i].present) Serial.printf("CH%d %s %6.3fA  ", i + 1, (relayMask >> i) & 1 ? "ON " : "off", st[i].live / 1000.0f);
       else Serial.printf("CH%d  --         ", i + 1);
     }
-    Serial.printf(" link %s\n", millis() - lastMasterMs < LINK_TIMEOUT_MS ? "OK" : "idle");
+    Serial.printf(" link %s (reads %lu, cmds %lu)\n", millis() - lastMasterMs < LINK_TIMEOUT_MS ? "OK" : "idle",
+                  (unsigned long)readCount, (unsigned long)cmdCount);
   }
 }

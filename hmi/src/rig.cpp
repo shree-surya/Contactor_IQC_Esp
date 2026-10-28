@@ -357,6 +357,8 @@ bool rig_is_simulated() { return !RIG_LINK; }
 
 bool rig_hw_ok() { return hw_ok(); }
 
+uint32_t rig_cmd_errors() { return hw_cmd_errors(); }
+
 bool rig_channel_ok(int ch) { return hw_channel_ok(ch); }
 
 const ChannelView &rig_channel(int ch) { return s_view[ch]; }
