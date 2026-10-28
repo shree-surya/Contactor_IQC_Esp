@@ -1,7 +1,7 @@
 // INA219 capture test - all 5 sensors at once (wired in series = same current)
 // Arduino IDE: ESP32S3 Dev Module, USB CDC On Boot: Enabled, cable in "USB Native"
 //
-// CH1..CH4 on GPIO 8/9 (0x40, 0x41, 0x44, 0x45), CH5 on GPIO 17/18 (0x40)
+// All 5 on GPIO 8/9: CH1 0x40, CH2 0x41, CH3 0x44, CH4 0x45, CH5 0x42 (A0 bridged to SDA)
 // 1. Checks all 5 sensors, says READY  -> switch the coil power ON
 // 2. Recording starts by itself when current flows on any channel
 // 3. Type s + Enter to stop: per-channel in-rush peak, hold current, supply
@@ -20,7 +20,7 @@
 struct Ch { TwoWire *bus; uint8_t addr; bool ok; };
 Ch C[NCH] = {
   {&Wire, 0x40, false}, {&Wire, 0x41, false}, {&Wire, 0x44, false}, {&Wire, 0x45, false},
-  {&Wire1, 0x40, false},
+  {&Wire, 0x42, false},
 };
 
 const uint16_t CFG_FAST = (3 << 11) | (0 << 3) | 5;                // shunt only, 9-bit, 84 us
@@ -70,8 +70,7 @@ void arm() {
     C[i].ok = wr16(C[i], 0x00, 0x8000);  // reset
     delay(2);
     C[i].ok = C[i].ok && wr16(C[i], 0x00, CFG_FAST);
-    Serial.printf("CH%d  %s  0x%02X  %s\n", i + 1, C[i].bus == &Wire ? "bus A" : "bus B", C[i].addr,
-                  C[i].ok ? "OK" : "NOT FOUND");
+    Serial.printf("CH%d  0x%02X  %s\n", i + 1, C[i].addr, C[i].ok ? "OK" : "NOT FOUND");
     found += C[i].ok;
   }
   if (!found) {
@@ -163,8 +162,14 @@ void setup() {
   Serial.println("\nINA219 capture test - 5 sensors");
   Wire.begin(8, 9, 400000);
   Wire.setTimeOut(20);
-  Wire1.begin(17, 18, 400000);
-  Wire1.setTimeOut(20);
+
+  // Show every address on the bus (expect 0x40 0x41 0x42 0x44 0x45)
+  Serial.print("Bus scan (GPIO 8/9):");
+  for (uint8_t a = 1; a < 127; a++) {
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) Serial.printf(" 0x%02X", a);
+  }
+  Serial.println();
   arm();
 }
 
