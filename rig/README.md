@@ -11,10 +11,19 @@ for 1.5 s, all relays switch off.
 | Sensors CH1..CH5 (0x40, 0x41, 0x44, 0x45, **0x42**) | SDA **GPIO 8**, SCL **GPIO 9**, 3V3, GND |
 | Link to the HMI panel | SDA **GPIO 17**, SCL **GPIO 18**, GND |
 | Relays IN1..IN5 (LOW = ON) | GPIO **4, 5, 6, 7, 15** |
+| Feedback contacts CH1..CH5 (4-pin contactors) | GPIO **1, 2, 10, 11, 12** |
 
 CH5 must be at **0x42** on GPIO 8/9 (A0 wired to SDA), because GPIO 17/18 are
 now the HMI link. Arduino IDE: ESP32S3 Dev Module, USB CDC On Boot: Enabled,
 cable in the **USB Native** port.
+
+**Feedback contact (continuity) wiring**, 4-pin contactors only: one feedback pin to the
+channel's GPIO, the other feedback pin to ESP32 GND. Closed contact = LOW. The input uses
+the internal pull-up; a 2.2 kΩ pull-up from the GPIO to 3V3 gives the contact a stronger
+current (about 1.5 mA) and better noise immunity on long wires. First check with a
+multimeter that the feedback pins have no connection to the coil pins. Set
+**Continuity = Yes** for that model in the Specs sheet; 2-pin models stay **No** and show
+-NA-. Serial Monitor `p` shows each contact as CLOSE / open.
 
 **HMI ↔ rig board cable** (CrowPanel I2C header → rig board):
 SDA IO19 → GPIO 17, SCL IO20 → GPIO 18, GND → GND. Do not connect the power

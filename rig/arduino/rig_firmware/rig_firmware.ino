@@ -4,6 +4,7 @@
 // What it does:
 //   - reads 5 INA219 current sensors continuously (in-rush peak + average)
 //   - drives 5 relays (active LOW relay board)
+//   - reads the 5 feedback (continuity) contacts of 4-pin contactors
 //   - talks to the HMI panel as an I2C slave (address 0x30)
 // The HMI runs the test sequence and decides PASS/FAIL. If the HMI stops
 // talking for 1.5 s, all relays switch OFF (safety).
@@ -14,6 +15,9 @@
 //                     CH5 0x42 (A0 wired to SDA)
 //   HMI link (bus B): GPIO 17 = SDA, GPIO 18 = SCL, GND  -> CrowPanel I2C header
 //   Relays IN1..IN5:  GPIO 4, 5, 6, 7, 15   (LOW = relay ON)
+//   Feedback contacts CH1..CH5: GPIO 1, 2, 10, 11, 12. One contact pin to the
+//                     GPIO, the other to GND (closed = LOW). Optional 2.2k
+//                     pull-up to 3V3 for a stronger contact current.
 //
 // Serial Monitor (115200): p = print live table on/off, 1..5 = toggle relay
 // (bench use only), 0 = all relays off
@@ -32,6 +36,8 @@
 
 const uint8_t SENS_ADDR[NCH] = {0x40, 0x41, 0x44, 0x45, 0x42};
 const int RELAY_PIN[NCH] = {4, 5, 6, 7, 15};
+const int FB_PIN[NCH] = {1, 2, 10, 11, 12};
+#define FB_DEBOUNCE_MS 5      // contact must be stable this long to change state
 
 // INA219: 16 V, +-320 mV, shunt only, 12-bit (532 us), continuous
 const uint16_t INA_CFG = (3 << 11) | (3 << 3) | 5;
@@ -45,6 +51,8 @@ struct ChStats {
   uint32_t n;
   uint8_t resets;    // incremented on every reset (HMI uses it to know data is fresh)
   bool overRange;
+  bool closed;       // feedback contact, debounced
+  bool dropped;      // contact opened at any moment since last reset
 };
 
 ChStats st[NCH];
@@ -108,6 +116,7 @@ void onLinkReceive(int) {
         st[i].sum = 0;
         st[i].n = 0;
         st[i].overRange = false;
+        st[i].dropped = !st[i].closed;
         st[i].resets++;
       }
     }
@@ -122,7 +131,7 @@ void onLinkRequest() {
   portENTER_CRITICAL(&mux);
   for (int i = 0; i < NCH; i++) if (st[i].present) present |= 1 << i;
   p[0] = 0xA5;                                   // magic
-  p[1] = 1;                                      // protocol version
+  p[1] = 2;                                      // protocol version (2 = feedback contacts)
   p[2] = relayMask;
   p[3] = present;
   p[4] = (uint8_t)(0.32f / SHUNT_OHM * 10 + 0.5f);  // measuring range x10 A
@@ -134,7 +143,7 @@ void onLinkRequest() {
     c[2] = st[i].peak & 0xFF;  c[3] = st[i].peak >> 8;
     c[4] = avg & 0xFF;         c[5] = avg >> 8;
     c[6] = st[i].resets;
-    c[7] = (st[i].overRange ? 1 : 0) | (st[i].n ? 2 : 0);
+    c[7] = (st[i].overRange ? 1 : 0) | (st[i].n ? 2 : 0) | (st[i].closed ? 4 : 0) | (st[i].dropped ? 8 : 0);
   }
   portEXIT_CRITICAL(&mux);
   uint8_t sum = 0;
@@ -151,6 +160,7 @@ void setup() {
     digitalWrite(RELAY_PIN[i], HIGH);  // OFF before becoming an output
     pinMode(RELAY_PIN[i], OUTPUT);
   }
+  for (int i = 0; i < NCH; i++) pinMode(FB_PIN[i], INPUT_PULLUP);
   Serial.begin(115200);
   delay(1000);
   Serial.println("\nContactor IQC rig board");
@@ -190,6 +200,20 @@ void loop() {
   }
   hpos = (hpos + 1) & 7;
 
+  // Feedback contacts: debounce, remember any opening since the last reset
+  static bool fbRaw[NCH];
+  static uint32_t fbSince[NCH];
+  for (int i = 0; i < NCH; i++) {
+    bool c = digitalRead(FB_PIN[i]) == LOW;
+    if (c != fbRaw[i]) { fbRaw[i] = c; fbSince[i] = millis(); }
+    if (c != st[i].closed && millis() - fbSince[i] >= FB_DEBOUNCE_MS) {
+      portENTER_CRITICAL(&mux);
+      st[i].closed = c;
+      if (!c) st[i].dropped = true;
+      portEXIT_CRITICAL(&mux);
+    }
+  }
+
   // Report relay changes (from the HMI or the keyboard)
   static uint8_t shownMask = 0;
   if (relayMask != shownMask) {
@@ -225,8 +249,8 @@ void loop() {
   if (printTable && millis() - lastPrint > 300) {
     lastPrint = millis();
     for (int i = 0; i < NCH; i++) {
-      if (st[i].present) Serial.printf("CH%d %s %6.3fA  ", i + 1, (relayMask >> i) & 1 ? "ON " : "off", st[i].live / 1000.0f);
-      else Serial.printf("CH%d  --         ", i + 1);
+      if (st[i].present) Serial.printf("CH%d %s %6.3fA %s  ", i + 1, (relayMask >> i) & 1 ? "ON " : "off", st[i].live / 1000.0f, st[i].closed ? "CLOSE" : "open ");
+      else Serial.printf("CH%d  --          %s  ", i + 1, st[i].closed ? "CLOSE" : "open ");
     }
     Serial.printf(" link %s (reads %lu, cmds %lu)\n", millis() - lastMasterMs < LINK_TIMEOUT_MS ? "OK" : "idle",
                   (unsigned long)readCount, (unsigned long)cmdCount);

@@ -107,6 +107,17 @@ static void step_cell(int row, int col, StepState s) {
   }
 }
 
+// Continuity: live contact state while checking, then CLOSE (pass) / OPEN (fail)
+static void contin_cell(int row, int col, int ch, StepState s) {
+  switch (s) {
+    case ST_RUN: set_cell(row, col, rig_contact_closed(ch) ? "CLOSE" : "OPEN", CS_RUN); break;
+    case ST_PASS: set_cell(row, col, "CLOSE", CS_PASS); break;
+    case ST_FAIL: set_cell(row, col, "OPEN", CS_FAIL); break;
+    case ST_NA: set_cell(row, col, "-NA-", CS_MUTED); break;
+    default: set_cell(row, col, "", CS_PLAIN); break;
+  }
+}
+
 static void value_cell(int row, int col, StepState s, bool measured, float val, int decimals) {
   char buf[16];
   snprintf(buf, sizeof(buf), "%.*f", decimals, val);
@@ -150,7 +161,7 @@ static void refresh() {
     step_cell(R_OPEN, col, v.open);
     value_cell(R_INRUSH, col, v.inrush, v.inrushMeasured, v.inrushA, 2);
     value_cell(R_CONT, col, v.cont, v.contMeasured, v.contA, 3);
-    step_cell(R_CONTIN, col, v.contin);
+    contin_cell(R_CONTIN, col, ch, v.contin);
     step_cell(R_RELEASE, col, v.release);
 
     switch (v.status) {
@@ -205,6 +216,10 @@ static void start_cb(lv_event_t *) {
       ui_toast("Rig board", "CH%d current sensor not found.\nCheck its wiring, or untick CH%d.", ch + 1, ch + 1);
       return;
     }
+  }
+  if (g_models[g_app.modelIdx].contin && !rig_has_contacts()) {
+    ui_toast("Rig board", "This model needs the continuity check,\nbut the rig board firmware has no contact inputs.\nUpdate the rig board firmware.");
+    return;
   }
   rig_start(&g_models[g_app.modelIdx], g_app.chEnabled);
   s_started = true;

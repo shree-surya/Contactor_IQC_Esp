@@ -18,11 +18,14 @@ struct LinkCh {
   uint8_t expected;   // resets we have asked for
   bool hasAvg;
   bool overRange;
+  bool closed;   // feedback contact closed (debounced on the rig board)
+  bool dropped;  // contact opened since the last reset
 };
 
 static LinkCh s_ch[NUM_CH];
 static uint8_t s_relayMask = 0;   // what we asked for
 static uint8_t s_present = 0;
+static uint8_t s_version = 0;  // 2+ = rig board reads the feedback contacts
 static float s_rangeA = CURRENT_RANGE_A;
 static bool s_synced = false;      // counters aligned with the rig board
 static uint32_t s_lastOk = 0, s_lastPoll = 0;
@@ -46,7 +49,9 @@ static bool read_status() {
   if (!lgfx::i2c::transactionRead(I2C_PORT, RIG_I2C_ADDR, p, PKT_LEN, RIG_I2C_HZ).has_value()) return false;
   uint8_t sum = 0;
   for (int i = 0; i < PKT_LEN - 1; i++) sum += p[i];
-  if (p[0] != 0xA5 || p[1] != 1 || sum != p[PKT_LEN - 1]) return false;
+  if (p[0] != 0xA5 || p[1] < 1 || p[1] > 2 || sum != p[PKT_LEN - 1]) return false;
+
+  s_version = p[1];
 
   s_present = p[3];
   if (p[4]) s_rangeA = p[4] / 10.0f;
@@ -59,6 +64,8 @@ static bool read_status() {
     ch.resets = c[6];
     ch.overRange = c[7] & 1;
     ch.hasAvg = c[7] & 2;
+    ch.closed = c[7] & 4;
+    ch.dropped = c[7] & 8;
     if (!s_synced) ch.expected = ch.resets;
     if (ch.live < 0) ch.live = 0;
   }
@@ -84,7 +91,7 @@ void hw_poll(uint32_t now) {
 bool hw_ok() { return s_synced && millis() - s_lastOk < 1000; }
 uint32_t hw_cmd_errors() { return s_cmdErrors; }
 bool hw_channel_ok(int ch) { return hw_ok() && ((s_present >> ch) & 1); }
-bool hw_has_contacts() { return false; }  // continuity inputs not fitted yet
+bool hw_has_contacts() { return hw_ok() && s_version >= 2; }  // older rig firmware has no contact inputs
 float hw_range_a() { return s_rangeA; }
 
 void hw_sim_set_spec(const ModelSpec *) {}
@@ -108,7 +115,7 @@ bool hw_relay_state(int ch) { return (s_relayMask >> ch) & 1; }
 
 float hw_current(int ch, uint32_t) { return s_ch[ch].live; }
 
-bool hw_contact_closed(int, uint32_t) { return false; }
+bool hw_contact_closed(int ch, uint32_t) { return hw_has_contacts() && s_ch[ch].closed; }
 
 void hw_stats_reset(int ch) {
   s_ch[ch].expected++;
@@ -122,6 +129,8 @@ float hw_peak(int ch) {
   if (!fresh(ch)) return -1;
   return s_ch[ch].overRange ? s_rangeA : s_ch[ch].peak;
 }
+
+bool hw_contact_dropped(int ch) { return fresh(ch) && s_ch[ch].dropped; }
 
 float hw_avg(int ch) {
   if (!fresh(ch) || !s_ch[ch].hasAvg) return -1;

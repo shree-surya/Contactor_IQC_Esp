@@ -102,6 +102,7 @@ bool hw_ok() { return true; }
 uint32_t hw_cmd_errors() { return 0; }
 bool hw_channel_ok(int) { return true; }
 bool hw_has_contacts() { return true; }
+bool hw_contact_dropped(int) { return false; }
 float hw_range_a() { return CURRENT_RANGE_A; }
 void hw_stats_reset(int) {}
 float hw_peak(int) { return -1; }

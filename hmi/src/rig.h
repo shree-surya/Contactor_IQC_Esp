@@ -73,4 +73,5 @@ void rig_clear_results();  // operator chose not to save
 bool rig_manual_relay(int ch, bool on);
 bool rig_relay_state(int ch);
 bool rig_contact_closed(int ch);
+bool rig_has_contacts();  // rig board reads the feedback contacts
 float rig_current(int ch);

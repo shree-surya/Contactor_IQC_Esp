@@ -24,6 +24,7 @@ void hw_all_off(uint32_t now);
 bool hw_relay_state(int ch);
 float hw_current(int ch, uint32_t now);       // live coil current, A
 bool hw_contact_closed(int ch, uint32_t now);
+bool hw_contact_dropped(int ch);  // contact opened at any moment since hw_stats_reset()
 
 // Peak and average measured by the rig board since the relay went ON or the
 // last hw_stats_reset(). Negative = not available (simulation, or the reset

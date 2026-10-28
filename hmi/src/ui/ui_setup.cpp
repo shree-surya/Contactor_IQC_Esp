@@ -44,10 +44,10 @@ static void build_specs_tab(lv_obj_t *tab) {
   lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_row(tab, 10, 0);
 
-  lv_obj_t *t = make_table(tab, 6, g_modelCount + 1);
-  const char *head[] = {"Model", "IR LSL", "IR USL", "Cont LSL", "Cont USL", "Cycles"};
-  const int widths[] = {270, 85, 85, 100, 100, 85};
-  for (int c = 0; c < 6; c++) {
+  lv_obj_t *t = make_table(tab, 7, g_modelCount + 1);
+  const char *head[] = {"Model", "IR LSL", "IR USL", "Cont LSL", "Cont USL", "Cycles", "Contin."};
+  const int widths[] = {240, 80, 80, 95, 95, 75, 85};
+  for (int c = 0; c < 7; c++) {
     lv_table_set_col_width(t, c, widths[c]);
     lv_table_set_cell_value(t, 0, c, head[c]);
   }
@@ -64,6 +64,7 @@ static void build_specs_tab(lv_obj_t *tab) {
     fmt_limit(b, sizeof(b), m.contUsl);
     lv_table_set_cell_value(t, i + 1, 4, b);
     lv_table_set_cell_value_fmt(t, i + 1, 5, "%d", m.cycles);
+    lv_table_set_cell_value(t, i + 1, 6, m.contin ? "Yes" : "No");
   }
 
   lv_obj_t *l = lv_label_create(tab);

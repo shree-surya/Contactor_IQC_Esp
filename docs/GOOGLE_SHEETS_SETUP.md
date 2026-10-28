@@ -17,7 +17,8 @@ Allow about 30 minutes. You only do this once.
    A new copy opens.
 5. Rename that copy to **Contactor IQC** (top-left title) and delete the uploaded `.xlsx` from Drive.
 6. Check it has 4 tabs: **Specs, Operators, Results, README**.
-   - **Specs:** check the 4 models and their limits.
+   - **Specs:** check the 4 models and their limits. Set **Continuity** (column M) to **Yes** for 4-pin
+     contactors whose feedback contact is wired to the rig, **No** for 2-pin ones.
    - **Operators:** column A = name, column B = login password (max 10 rows; empty password = none).
    - Don't rename tabs or edit header rows.
 7. Copy the **Sheet ID** from the address bar and keep it for Part D:
@@ -105,10 +106,16 @@ Each tested contactor is **one row**:
 - **Overall** is PASS (all cycles passed), FAIL, or ABORTED (STOP ALL).
 - Up to 5 cycles per unit (the **Cycles** column in Specs can be 1 to 5).
 - Cycles that were not run (after a failure, or a model with fewer than 5 cycles) show `-NA-` or stay empty.
+- **Continuity** is `CLOSE` (feedback contact stayed closed while the coil was on), `OPEN` (it opened: FAIL),
+  or `-NA-` when the model has Continuity = No in Specs.
 - The **Timestamp** is when the unit finished (IST), written as text. A `*` at the end means the rig was
   offline when the unit finished, and the time shown is when the row was uploaded.
 
 ### Updating a Sheet you already made
+
+If your **Specs** tab has no **Continuity** column, type `Continuity` in **M1** and `Yes` / `No` for each
+model below it. An empty cell counts as No.
+
 
 If your **Results** tab still has an older header (one row per cycle, or columns up to `10- Release`):
 
