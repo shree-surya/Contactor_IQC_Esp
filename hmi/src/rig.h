@@ -22,6 +22,7 @@ struct ChannelView {
   float contA;    // average (live while the averaging window is open)
   float liveA;    // instantaneous coil current
   bool inrushMeasured, contMeasured;
+  bool offClosed;  // main terminals were found CLOSED at the Contin. OFF check
   char failStep[24];
 };
 
@@ -73,5 +74,5 @@ void rig_clear_results();  // operator chose not to save
 bool rig_manual_relay(int ch, bool on);
 bool rig_relay_state(int ch);
 bool rig_contact_closed(int ch);
-bool rig_has_contacts();  // rig board reads the feedback contacts
+bool rig_has_contacts();  // rig board reads the main-terminal continuity inputs
 float rig_current(int ch);

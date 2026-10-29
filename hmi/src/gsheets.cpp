@@ -275,15 +275,6 @@ static uint16_t cell_uint(JsonVariant v, uint16_t def) {
   return n > 0 && n < 65536 ? (uint16_t)n : def;
 }
 
-// "Yes" / "Y" / TRUE -> true; "No", empty or anything else -> false
-static bool cell_yes(JsonVariant v) {
-  if (v.is<bool>()) return v.as<bool>();
-  if (!v.is<const char *>()) return false;
-  const char *s = v.as<const char *>();
-  while (*s == ' ') s++;
-  return *s == 'Y' || *s == 'y';
-}
-
 static int parse_models(JsonArray rows, ModelSpec *out) {
   int n = 0;
   for (JsonArray row : rows) {
@@ -308,7 +299,6 @@ static int parse_models(JsonArray rows, ModelSpec *out) {
     if (m.cycles > MAX_CYCLES) m.cycles = MAX_CYCLES;
     m.cycleGapMs = cell_uint(row[10], m.cycleGapMs);
     m.staggerMs = cell_uint(row[11], m.staggerMs);
-    m.contin = cell_yes(row[12]);
     out[n++] = m;
   }
   return n;
@@ -377,7 +367,7 @@ static void load_cache() {
 static bool do_sync() {
   set_status("Reading Specs");
   String url = String("https://sheets.googleapis.com/v4/spreadsheets/") + GSHEET_ID +
-               "/values:batchGet?ranges=Specs%21A2%3AM9&ranges=Operators%21A2%3AB11&valueRenderOption=UNFORMATTED_VALUE";
+               "/values:batchGet?ranges=Specs%21A2%3AL9&ranges=Operators%21A2%3AB11&valueRenderOption=UNFORMATTED_VALUE";
   String resp;
   int code = api("GET", url, "", resp);
   if (code != 200) {
@@ -428,8 +418,8 @@ static bool do_sync() {
 // ---------------------------------------------------------------------------
 
 // Results row: S.No, Serial, Timestamp, Operator, Model, Channel, Overall,
-// Fail Step, then 7 columns per cycle (Open, Inrush A, Inrush P/F, Cont A,
-// Cont P/F, Continuity, Release). A leading ' makes Sheets keep the text
+// Fail Step, then 7 columns per cycle (Contin. OFF, Inrush A, Inrush P/F, Cont A,
+// Cont P/F, Contin. ON, Release). A leading ' makes Sheets keep the text
 // exactly as sent (no date/number guessing).
 static String row_line(const ResultRow &r) {
   const char *ts = r.ts;

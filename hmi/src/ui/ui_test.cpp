@@ -8,8 +8,8 @@
 // The top-left cell shows the batch state (READY / RUNNING / DONE / STOPPED).
 enum Row { R_HEAD, R_LIVE, R_STATUS, R_SERIAL, R_CYCLE, R_OPEN, R_INRUSH, R_CONT, R_CONTIN, R_RELEASE, ROWS };
 static const int COLS = NUM_CH + 1;
-static const char *ROW_NAMES[ROWS] = {"", "Live (A)", "Status", "Serial", "Cycle", "Open",
-                                      "In-rush (A)", "Cont (A)", "Continuity", "Release"};
+static const char *ROW_NAMES[ROWS] = {"", "Live (A)", "Status", "Serial", "Cycle", "Contin. OFF",
+                                      "In-rush (A)", "Cont (A)", "Contin. ON", "Release"};
 
 enum CellStyle : uint8_t {
   CS_PLAIN, CS_HEAD, CS_LABEL, CS_MUTED, CS_LIVE, CS_PASS, CS_FAIL, CS_RUN,
@@ -107,8 +107,19 @@ static void step_cell(int row, int col, StepState s) {
   }
 }
 
-// Continuity: live contact state while checking, then CLOSE (pass) / OPEN (fail)
-static void contin_cell(int row, int col, int ch, StepState s) {
+// Contin. OFF: OPEN expected. Green OPEN = pass; red CLOSE (terminals shorted)
+// or red OPEN (coil current flowing with the relay off) = fail
+static void contin_off_cell(int row, int col, StepState s, bool closed) {
+  switch (s) {
+    case ST_PASS: set_cell(row, col, "OPEN", CS_PASS); break;
+    case ST_FAIL: set_cell(row, col, closed ? "CLOSE" : "OPEN", CS_FAIL); break;
+    case ST_NA: set_cell(row, col, "-NA-", CS_MUTED); break;
+    default: set_cell(row, col, "", CS_PLAIN); break;
+  }
+}
+
+// Contin. ON: live terminal state while checking, then CLOSE (pass) / OPEN (fail)
+static void contin_on_cell(int row, int col, int ch, StepState s) {
   switch (s) {
     case ST_RUN: set_cell(row, col, rig_contact_closed(ch) ? "CLOSE" : "OPEN", CS_RUN); break;
     case ST_PASS: set_cell(row, col, "CLOSE", CS_PASS); break;
@@ -158,10 +169,10 @@ static void refresh() {
       set_cell(R_LIVE, col, "--", CS_MUTED);
     }
 
-    step_cell(R_OPEN, col, v.open);
+    contin_off_cell(R_OPEN, col, v.open, v.offClosed);
     value_cell(R_INRUSH, col, v.inrush, v.inrushMeasured, v.inrushA, 2);
     value_cell(R_CONT, col, v.cont, v.contMeasured, v.contA, 3);
-    contin_cell(R_CONTIN, col, ch, v.contin);
+    contin_on_cell(R_CONTIN, col, ch, v.contin);
     step_cell(R_RELEASE, col, v.release);
 
     switch (v.status) {
@@ -217,8 +228,8 @@ static void start_cb(lv_event_t *) {
       return;
     }
   }
-  if (g_models[g_app.modelIdx].contin && !rig_has_contacts()) {
-    ui_toast("Rig board", "This model needs the continuity check,\nbut the rig board firmware has no contact inputs.\nUpdate the rig board firmware.");
+  if (!rig_has_contacts()) {
+    ui_toast("Rig board", "The rig board firmware cannot read continuity.\nUpdate the rig board firmware.");
     return;
   }
   rig_start(&g_models[g_app.modelIdx], g_app.chEnabled);

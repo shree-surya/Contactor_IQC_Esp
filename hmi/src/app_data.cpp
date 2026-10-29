@@ -26,7 +26,6 @@ void app_data_default_timings(ModelSpec &m) {
   m.cycles = 5;
   m.cycleGapMs = 5000;
   m.staggerMs = 1500;
-  m.contin = false;
 }
 
 void app_data_set_models(const ModelSpec *models, int count) {

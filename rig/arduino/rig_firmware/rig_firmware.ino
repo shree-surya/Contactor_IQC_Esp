@@ -4,7 +4,7 @@
 // What it does:
 //   - reads 5 INA219 current sensors continuously (in-rush peak + average)
 //   - drives 5 relays (active LOW relay board)
-//   - reads the 5 feedback (continuity) contacts of 4-pin contactors
+//   - reads continuity across each contactor's 2 main terminals
 //   - talks to the HMI panel as an I2C slave (address 0x30)
 // The HMI runs the test sequence and decides PASS/FAIL. If the HMI stops
 // talking for 1.5 s, all relays switch OFF (safety).
@@ -15,9 +15,10 @@
 //                     CH5 0x42 (A0 wired to SDA)
 //   HMI link (bus B): GPIO 17 = SDA, GPIO 18 = SCL, GND  -> CrowPanel I2C header
 //   Relays IN1..IN5:  GPIO 4, 5, 6, 7, 15   (LOW = relay ON)
-//   Feedback contacts CH1..CH5: GPIO 1, 2, 10, 11, 12. One contact pin to the
-//                     GPIO, the other to GND (closed = LOW). Optional 2.2k
-//                     pull-up to 3V3 for a stronger contact current.
+//   Continuity CH1..CH5: GPIO 1, 2, 10, 11, 12. Main terminal A to the GPIO
+//                     (2.2k pull-up from the GPIO to 3V3), main terminal B to
+//                     GND. Terminals shorted (contactor ON) = LOW = CLOSE.
+//                     The contactor must not be connected to anything else.
 //
 // Serial Monitor (115200): p = print live table on/off, 1..5 = toggle relay
 // (bench use only), 0 = all relays off
@@ -51,8 +52,8 @@ struct ChStats {
   uint32_t n;
   uint8_t resets;    // incremented on every reset (HMI uses it to know data is fresh)
   bool overRange;
-  bool closed;       // feedback contact, debounced
-  bool dropped;      // contact opened at any moment since last reset
+  bool closed;       // main terminals shorted (debounced)
+  bool dropped;      // terminals opened at any moment since last reset
 };
 
 ChStats st[NCH];
@@ -131,7 +132,7 @@ void onLinkRequest() {
   portENTER_CRITICAL(&mux);
   for (int i = 0; i < NCH; i++) if (st[i].present) present |= 1 << i;
   p[0] = 0xA5;                                   // magic
-  p[1] = 2;                                      // protocol version (2 = feedback contacts)
+  p[1] = 2;                                      // protocol version (2 = continuity inputs)
   p[2] = relayMask;
   p[3] = present;
   p[4] = (uint8_t)(0.32f / SHUNT_OHM * 10 + 0.5f);  // measuring range x10 A
@@ -200,7 +201,7 @@ void loop() {
   }
   hpos = (hpos + 1) & 7;
 
-  // Feedback contacts: debounce, remember any opening since the last reset
+  // Continuity inputs: debounce, remember any opening since the last reset
   static bool fbRaw[NCH];
   static uint32_t fbSince[NCH];
   for (int i = 0; i < NCH; i++) {

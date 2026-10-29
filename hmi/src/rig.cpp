@@ -6,15 +6,14 @@
 #include "gsheets.h"
 
 // Per-channel test sequence (one cycle). Hardware: hw.h (real rig board over
-// I2C, or the simulation). Models with "Continuity" = No in the Specs sheet
-// (2-pin contactors, no feedback contact) are judged on current only for Open
-// and Release, and Continuity is -NA-. With Yes it is CLOSE (pass) or OPEN.
+// I2C, or the simulation). Continuity = the contactor's two main terminals,
+// read by the rig board (shorted = CLOSE, apart = OPEN).
 //
-//   1. Open      relay OFF: contact must be open and coil current ~0
-//   2. In-rush   relay ON, peak current over the in-rush window
-//   3. Cont      average current from settleMs to settleMs + avgMs
-//   4. Contin.   contact must stay closed for the whole averaging window
-//   5. Release   relay OFF, after releaseMs contact open and current ~0
+//   1. Contin. OFF  relay OFF: main terminals OPEN and coil current ~0
+//   2. In-rush      relay ON, peak current over the in-rush window
+//   3. Cont         average current from settleMs to settleMs + avgMs
+//   4. Contin. ON   main terminals CLOSE for the whole averaging window
+//   5. Release      relay OFF, after releaseMs terminals OPEN and current ~0
 // Channels start staggerMs apart and never overlap their in-rush windows.
 // A channel stops at its first failure; the others carry on.
 
@@ -46,14 +45,20 @@ static void set_event(const char *fmt, ...) {
   Serial.printf("[rig] %s\n", s_event);
 }
 
-// Feedback contact checked for this model (Specs "Continuity" = Yes)
-static bool use_contacts() { return s_spec && s_spec->contin && hw_has_contacts(); }
-
-// Continuity result text: CLOSE = contact stayed closed, OPEN = it opened
-static const char *contin_txt(StepState s) {
+// Continuity results are the terminal state seen: Contin. ON passes with CLOSE,
+// Contin. OFF passes with OPEN (it fails with OPEN too if coil current flowed)
+static const char *contin_on_txt(StepState s) {
   switch (s) {
     case ST_PASS: return "CLOSE";
     case ST_FAIL: return "OPEN";
+    default: return "-NA-";
+  }
+}
+
+static const char *contin_off_txt(StepState s, bool closed) {
+  switch (s) {
+    case ST_PASS: return "OPEN";
+    case ST_FAIL: return closed ? "CLOSE" : "OPEN";
     default: return "-NA-";
   }
 }
@@ -83,7 +88,7 @@ static void record_cycle(int ch) {
   const ChannelView &v = s_view[ch];
   if (v.cycle == 0 || v.cycle > MAX_CYCLES) return;
   CycleResult &c = s_cyc[ch][v.cycle - 1];
-  strlcpy(c.open, pf_txt(v.open), sizeof(c.open));
+  strlcpy(c.open, contin_off_txt(v.open, v.offClosed), sizeof(c.open));
   if (v.inrushMeasured) snprintf(c.inrushA, sizeof(c.inrushA), "%.2f", v.inrushA);
   else strlcpy(c.inrushA, "-NA-", sizeof(c.inrushA));
   if (v.inrush == ST_NA && v.inrushMeasured) strlcpy(c.inrushPF, "NA", sizeof(c.inrushPF));
@@ -91,7 +96,7 @@ static void record_cycle(int ch) {
   if (v.contMeasured) snprintf(c.contA, sizeof(c.contA), "%.3f", v.contA);
   else strlcpy(c.contA, "-NA-", sizeof(c.contA));
   strlcpy(c.contPF, pf_txt(v.cont), sizeof(c.contPF));
-  strlcpy(c.contin, contin_txt(v.contin), sizeof(c.contin));
+  strlcpy(c.contin, contin_on_txt(v.contin), sizeof(c.contin));
   strlcpy(c.release, pf_txt(v.release), sizeof(c.release));
 }
 
@@ -163,10 +168,11 @@ static void begin_cycle(int ch, uint32_t now) {
   v.inrushMeasured = v.contMeasured = false;
   v.failStep[0] = '\0';
 
-  bool closed = use_contacts() && hw_contact_closed(ch, now);
+  bool closed = hw_contact_closed(ch, now);
+  v.offClosed = closed;
   float cur = hw_current(ch, now);
   if (closed || cur >= OFF_CURRENT_MAX_A) {
-    fail(ch, &v.open, closed ? "Open (contact closed)" : "Open (current)", now);
+    fail(ch, &v.open, closed ? "Contin OFF: CLOSE" : "Contin OFF: current", now);
     return;
   }
   v.open = ST_PASS;
@@ -211,7 +217,7 @@ static void tick_channel(int ch, uint32_t now) {
           v.inrush = ST_NA;  // measured, no limit for this model
         }
         v.cont = ST_RUN;
-        v.contin = use_contacts() ? ST_RUN : ST_NA;
+        v.contin = ST_RUN;
         r.ph = P_SETTLE;
       }
       break;
@@ -231,7 +237,7 @@ static void tick_channel(int ch, uint32_t now) {
       r.sum += cur;
       r.n++;
       v.contA = (float)(r.sum / r.n);
-      if (use_contacts() && (!hw_contact_closed(ch, now) || hw_contact_dropped(ch))) r.continDrop = true;
+      if (!hw_contact_closed(ch, now) || hw_contact_dropped(ch)) r.continDrop = true;
       if (now - r.relayOnAt >= (uint32_t)m.settleMs + m.avgMs) {
         float ha = hw_avg(ch);  // rig board's average (handles PWM economizer coils)
         if (ha >= 0) v.contA = ha;
@@ -243,10 +249,10 @@ static void tick_channel(int ch, uint32_t now) {
         }
         v.cont = ST_PASS;
         if (r.continDrop) {
-          fail(ch, &v.contin, "Continuity (OPEN)", now);
+          fail(ch, &v.contin, "Contin ON: OPEN", now);
           break;
         }
-        v.contin = use_contacts() ? ST_PASS : ST_NA;
+        v.contin = ST_PASS;
         v.release = ST_RUN;
         r.t0 = now;
         r.ph = P_RELEASE;
@@ -255,8 +261,9 @@ static void tick_channel(int ch, uint32_t now) {
 
     case P_RELEASE:
       if (now - r.t0 >= m.releaseMs) {
-        if ((use_contacts() && hw_contact_closed(ch, now)) || cur >= OFF_CURRENT_MAX_A) {
-          fail(ch, &v.release, "Release", now);
+        bool closed = hw_contact_closed(ch, now);
+        if (closed || cur >= OFF_CURRENT_MAX_A) {
+          fail(ch, &v.release, closed ? "Release: CLOSE" : "Release: current", now);
           break;
         }
         v.release = ST_PASS;

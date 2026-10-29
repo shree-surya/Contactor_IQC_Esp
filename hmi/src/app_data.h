@@ -15,7 +15,6 @@ struct ModelSpec {
   uint8_t cycles;
   uint16_t cycleGapMs;         // rest between cycles of the same channel
   uint16_t staggerMs;          // start offset between channels
-  bool contin;                 // feedback contact fitted: check continuity ("Continuity" = Yes)
 
   bool hasInrush() const { return !isnan(inrushLsl) && !isnan(inrushUsl); }
 };

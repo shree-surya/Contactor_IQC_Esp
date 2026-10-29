@@ -17,8 +17,7 @@ Allow about 30 minutes. You only do this once.
    A new copy opens.
 5. Rename that copy to **Contactor IQC** (top-left title) and delete the uploaded `.xlsx` from Drive.
 6. Check it has 4 tabs: **Specs, Operators, Results, README**.
-   - **Specs:** check the 4 models and their limits. Set **Continuity** (column M) to **Yes** for 4-pin
-     contactors whose feedback contact is wired to the rig, **No** for 2-pin ones.
+   - **Specs:** check the 4 models and their limits.
    - **Operators:** column A = name, column B = login password (max 10 rows; empty password = none).
    - Don't rename tabs or edit header rows.
 7. Copy the **Sheet ID** from the address bar and keep it for Part D:
@@ -101,20 +100,21 @@ the firmware:
 
 Each tested contactor is **one row**:
 
-`S.No | Serial | Timestamp | Operator | Model | Channel | Overall | Fail Step | 1- Open | 1- Inrush (A) | 1- Inrush P/F | 1- Cont (A) | 1- Cont P/F | 1- Continuity | 1- Release | 2- Open | … | 5- Release`
+`S.No | Serial | Timestamp | Operator | Model | Channel | Overall | Fail Step | 1- Contin. OFF | 1- Inrush (A) | 1- Inrush P/F | 1- Cont (A) | 1- Cont P/F | 1- Contin. ON | 1- Release | 2- Contin. OFF | … | 5- Release`
 
 - **Overall** is PASS (all cycles passed), FAIL, or ABORTED (STOP ALL).
 - Up to 5 cycles per unit (the **Cycles** column in Specs can be 1 to 5).
 - Cycles that were not run (after a failure, or a model with fewer than 5 cycles) show `-NA-` or stay empty.
-- **Continuity** is `CLOSE` (feedback contact stayed closed while the coil was on), `OPEN` (it opened: FAIL),
-  or `-NA-` when the model has Continuity = No in Specs.
+- **Contin. OFF** is the main-terminal state before the coil is switched on: `OPEN` = pass, `CLOSE` = FAIL
+  (welded or stuck). `OPEN` with Fail Step "Contin OFF: current" means coil current flowed with the relay off.
+- **Contin. ON** is the main-terminal state while the coil is on: `CLOSE` = pass, `OPEN` = FAIL.
 - The **Timestamp** is when the unit finished (IST), written as text. A `*` at the end means the rig was
   offline when the unit finished, and the time shown is when the row was uploaded.
 
 ### Updating a Sheet you already made
 
-If your **Specs** tab has no **Continuity** column, type `Continuity` in **M1** and `Yes` / `No` for each
-model below it. An empty cell counts as No.
+If your **Results** header still says `1- Open` / `1- Continuity`, rename them to `1- Contin. OFF` /
+`1- Contin. ON` (same for cycles 2 to 5), or paste the header from `docs/results_header.tsv`.
 
 
 If your **Results** tab still has an older header (one row per cycle, or columns up to `10- Release`):
