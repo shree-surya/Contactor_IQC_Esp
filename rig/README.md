@@ -11,16 +11,16 @@ for 1.5 s, all relays switch off.
 | Sensors CH1..CH5 (0x40, 0x41, 0x44, 0x45, **0x42**) | SDA **GPIO 8**, SCL **GPIO 9**, 3V3, GND |
 | Link to the HMI panel | SDA **GPIO 17**, SCL **GPIO 18**, GND |
 | Relays IN1..IN5 (LOW = ON) | GPIO **4, 5, 6, 7, 15** |
-| Continuity CH1..CH5 (main terminals) | GPIO **1, 2, 10, 11, 12** + 2.2 kΩ pull-up to 3V3 each |
+| Continuity CH1..CH5 (main terminals) | GPIO **1, 2, 10, 11, 12** (to terminal A; terminal B to GND) |
 
 CH5 must be at **0x42** on GPIO 8/9 (A0 wired to SDA), because GPIO 17/18 are
 now the HMI link. Arduino IDE: ESP32S3 Dev Module, USB CDC On Boot: Enabled,
 cable in the **USB Native** port.
 
 **Continuity wiring** (every contactor, its 2 big main terminals on top): crocodile clip
-on terminal A → channel GPIO, crocodile clip on terminal B → ESP32 GND, and a 2.2 kΩ
-resistor from each of the 5 GPIOs to 3V3 on the rig board. Contactor ON = terminals
-shorted = LOW = CLOSE. Use a twisted pair per channel and keep it away from the coil
+on terminal A → channel GPIO, crocodile clip on terminal B → ESP32 GND. No resistor:
+the firmware turns on the internal pull-up. Contactor ON = terminals shorted = LOW = CLOSE.
+Only if noise gives random continuity fails, add 2.2 kΩ from that GPIO to 3V3. Use a twisted pair per channel and keep it away from the coil
 wires. The contactor's main terminals must not be connected to anything else (a battery
 or any voltage there destroys the ESP32). Serial Monitor `p` shows CLOSE / open per channel.
 

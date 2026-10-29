@@ -15,9 +15,10 @@
 //                     CH5 0x42 (A0 wired to SDA)
 //   HMI link (bus B): GPIO 17 = SDA, GPIO 18 = SCL, GND  -> CrowPanel I2C header
 //   Relays IN1..IN5:  GPIO 4, 5, 6, 7, 15   (LOW = relay ON)
-//   Continuity CH1..CH5: GPIO 1, 2, 10, 11, 12. Main terminal A to the GPIO
-//                     (2.2k pull-up from the GPIO to 3V3), main terminal B to
-//                     GND. Terminals shorted (contactor ON) = LOW = CLOSE.
+//   Continuity CH1..CH5: GPIO 1, 2, 10, 11, 12. Main terminal A to the GPIO,
+//                     main terminal B to GND (internal pull-up, no resistor).
+//                     Terminals shorted (contactor ON) = LOW = CLOSE. If noise
+//                     gives false readings, add 2.2k from the GPIO to 3V3.
 //                     The contactor must not be connected to anything else.
 //
 // Serial Monitor (115200): p = print live table on/off, 1..5 = toggle relay
