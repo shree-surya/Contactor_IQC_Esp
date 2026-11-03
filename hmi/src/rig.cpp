@@ -366,6 +366,32 @@ void rig_stop_all() {
   set_event("STOPPED by operator - all relays OFF");
 }
 
+bool rig_can_retest(int ch) {
+  if (!s_spec || ch < 0 || ch >= NUM_CH || s_run[ch].ph != P_DONE) return false;
+  ChStatus st = s_view[ch].status;
+  return st == CH_PASS || st == CH_FAIL || st == CH_ABORTED;
+}
+
+bool rig_retest(int ch) {
+  if (!rig_can_retest(ch)) return false;
+  // Drop the channel's earlier result from the unsaved results
+  int kept = 0;
+  for (int i = 0; i < s_qCount; i++) {
+    const ResultRow &r = s_queue[(s_qHead + i) % RESULT_QUEUE_LEN];
+    if (r.ch != ch + 1) s_queue[(s_qHead + kept++) % RESULT_QUEUE_LEN] = r;
+  }
+  s_qCount = kept;
+
+  memset(&s_run[ch], 0, sizeof(ChRun));
+  memset(&s_view[ch], 0, sizeof(ChannelView));
+  memset(s_cyc[ch], 0, sizeof(s_cyc[ch]));
+  s_run[ch].ph = P_WAIT_START;  // starts once no other channel is in its in-rush window
+  s_run[ch].startAt = millis();
+  s_view[ch].status = CH_WAITING;
+  set_event("CH%d retest started", ch + 1);
+  return true;
+}
+
 bool rig_running() {
   for (int ch = 0; ch < NUM_CH; ch++) {
     if (s_run[ch].ph != P_IDLE && s_run[ch].ph != P_DONE) return true;

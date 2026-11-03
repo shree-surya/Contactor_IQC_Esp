@@ -97,6 +97,11 @@ static lv_obj_t *create_grid(lv_obj_t *parent) {
   return grid;
 }
 
+static void retest_ask(int ch);
+
+// Channel header: tap a finished channel to retest it
+static void head_cb(lv_event_t *e) { retest_ask((int)(intptr_t)lv_event_get_user_data(e)); }
+
 static void step_cell(int row, int col, StepState s) {
   switch (s) {
     case ST_RUN: set_cell(row, col, "...", CS_RUN); break;
@@ -168,6 +173,11 @@ static void refresh() {
       set_cell(R_CYCLE, col, "--", CS_MUTED);
       set_cell(R_LIVE, col, "--", CS_MUTED);
     }
+
+    char head[16];
+    if (!s_saved && rig_can_retest(ch)) snprintf(head, sizeof(head), "CH%d " LV_SYMBOL_REFRESH, col);
+    else snprintf(head, sizeof(head), "CH%d", col);
+    set_cell(R_HEAD, col, head, CS_HEAD);
 
     contin_off_cell(R_OPEN, col, v.open, v.offClosed);
     value_cell(R_INRUSH, col, v.inrush, v.inrushMeasured, v.inrushA, 2);
@@ -359,6 +369,54 @@ static void discard_cb(lv_event_t *) {
 
 static void cancel_cb(lv_event_t *) { confirm_close(); }
 
+// ---------------------------------------------------------------------------
+// RETEST: a finished channel (PASS / FAIL / STOPPED) runs again from cycle 1.
+// Only until SAVE; the earlier result is dropped and only the new one is saved.
+// ---------------------------------------------------------------------------
+
+static void retest_go_cb(lv_event_t *e) {
+  int ch = (int)(intptr_t)lv_event_get_user_data(e);
+  confirm_close();
+  if (s_saved || !rig_can_retest(ch)) return;
+  if (!rig_hw_ok()) {
+    ui_toast("Rig board", "The rig board is not answering.\nCheck its power and the I2C cable to the panel.");
+    return;
+  }
+  if (!rig_channel_ok(ch)) {
+    ui_toast("Rig board", "CH%d current sensor not found.\nCheck its wiring.", ch + 1);
+    return;
+  }
+  rig_retest(ch);
+  refresh();
+}
+
+static void retest_ask(int ch) {
+  if (s_confirm_ov || s_saved || !rig_can_retest(ch)) return;  // running channels ignore taps
+  const ChannelView &v = rig_channel(ch);
+  char last[64];
+  if (v.status == CH_PASS) strlcpy(last, "PASS", sizeof(last));
+  else if (v.status == CH_ABORTED) strlcpy(last, "STOPPED", sizeof(last));
+  else snprintf(last, sizeof(last), "FAIL (%s)", v.failStep);
+
+  s_confirm_ov = overlay();
+  lv_obj_t *p = panel(s_confirm_ov, 500, 250);
+  lv_obj_t *t = lv_label_create(p);
+  lv_label_set_text_fmt(t, LV_SYMBOL_REFRESH "  Retest CH%d?", ch + 1);
+  lv_obj_set_style_text_font(t, FONT_L, 0);
+  lv_obj_align(t, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_t *m = lv_label_create(p);
+  lv_label_set_long_mode(m, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(m, 460);
+  lv_label_set_text_fmt(m, "Serial %s - last result %s\nCH%d starts again from cycle 1. Only the new result is saved.",
+                        g_app.serial[ch], last, ch + 1);
+  lv_obj_align(m, LV_ALIGN_TOP_LEFT, 0, 42);
+  lv_obj_t *c = ui_btn(p, "CANCEL", COL_NEUTRAL, 200, BTN_H, cancel_cb, nullptr);
+  lv_obj_align(c, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  lv_obj_t *r = ui_btn(p, LV_SYMBOL_REFRESH " RETEST", COL_PRIMARY, 200, BTN_H, retest_go_cb, (void *)(intptr_t)ch);
+  lv_obj_set_style_text_color(lv_obj_get_child(r, 0), COL_DARK_TEXT, 0);
+  lv_obj_align(r, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+}
+
 static void home_cb(lv_event_t *) {
   if (s_saved || rig_pending_count() == 0) {
     go_home();
@@ -397,6 +455,8 @@ void ui_show_test() {
     char name[8];
     snprintf(name, sizeof(name), "CH%d", c);
     set_cell(R_HEAD, c, name, CS_HEAD);
+    lv_obj_add_flag(s_cell[R_HEAD][c], LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_cell[R_HEAD][c], head_cb, LV_EVENT_CLICKED, (void *)(intptr_t)(c - 1));
   }
 
   lv_obj_t *f = ui_footer(scr);
@@ -408,6 +468,7 @@ void ui_show_test() {
 
   s_started = false;
   s_saved = false;
+  s_confirm_ov = nullptr;
   rig_reset(g_app.chEnabled);
   refresh();
   s_timer = lv_timer_create(timer_cb, 150, nullptr);

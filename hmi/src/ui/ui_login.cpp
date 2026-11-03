@@ -16,6 +16,7 @@ static lv_obj_t *s_kb = nullptr;
 static lv_obj_t *s_footer = nullptr;
 static lv_obj_t *s_wifi_lbl = nullptr;
 static lv_obj_t *s_sheet_lbl = nullptr;
+static lv_obj_t *s_badge = nullptr;  // pending-upload count on the PENDING button
 static lv_timer_t *s_timer = nullptr;
 static int s_ready = -1;  // last applied enable state
 
@@ -39,25 +40,42 @@ static void set_enabled(lv_obj_t *obj, bool en) {
 
 static void refresh_status() {
   switch (net_state()) {
-    case NET_CONNECTED:
-      lv_label_set_text(s_wifi_lbl, LV_SYMBOL_WIFI "  WiFi connected");
+    case NET_CONNECTED: {
+      char ssid[40], buf[64];
+      net_saved_ssid(ssid, sizeof(ssid));
+      snprintf(buf, sizeof(buf), LV_SYMBOL_WIFI "  WiFi connected (%s)", ssid);
+      lv_label_set_text(s_wifi_lbl, buf);
       lv_obj_set_style_text_color(s_wifi_lbl, COL_GREEN, 0);
       break;
+    }
     case NET_CONNECTING:
       lv_label_set_text(s_wifi_lbl, LV_SYMBOL_WIFI "  WiFi connecting...");
       lv_obj_set_style_text_color(s_wifi_lbl, COL_BUSY_TXT, 0);
       break;
     default:
-      lv_label_set_text(s_wifi_lbl, LV_SYMBOL_WIFI "  No WiFi set (Admin)");
+      lv_label_set_text(s_wifi_lbl, LV_SYMBOL_WIFI "  No WiFi saved (WIFI)");
       lv_obj_set_style_text_color(s_wifi_lbl, COL_MUTED, 0);
       break;
   }
 
   bool ready = login_ready();
+  int pending = gsheets_pending_count();
+  if (pending > 0) {
+    lv_label_set_text_fmt(s_badge, "%d", pending > 99 ? 99 : pending);
+    lv_obj_clear_flag(s_badge, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(s_badge, LV_OBJ_FLAG_HIDDEN);
+  }
   switch (gsheets_state()) {
     case GS_SYNCED:
-      lv_label_set_text(s_sheet_lbl, LV_SYMBOL_OK "  Google Sheet synced");
-      lv_obj_set_style_text_color(s_sheet_lbl, COL_GREEN, 0);
+      if (pending > 0) {
+        lv_label_set_text_fmt(s_sheet_lbl, LV_SYMBOL_REFRESH "  %d result%s waiting to upload", pending,
+                              pending == 1 ? "" : "s");
+        lv_obj_set_style_text_color(s_sheet_lbl, COL_BUSY_TXT, 0);
+      } else {
+        lv_label_set_text(s_sheet_lbl, LV_SYMBOL_OK "  Google Sheet synced");
+        lv_obj_set_style_text_color(s_sheet_lbl, COL_GREEN, 0);
+      }
       break;
     case GS_SYNCING:
       lv_label_set_text(s_sheet_lbl, LV_SYMBOL_REFRESH "  Google Sheet syncing...");
@@ -154,7 +172,9 @@ static void dd_cb(lv_event_t *) {
 }
 
 static void setup_cb(lv_event_t *) { ui_show_setup(ui_show_login); }
-static void admin_cb(lv_event_t *) { ui_admin_prompt(); }
+static void admin_cb(lv_event_t *) { ui_admin_prompt(ui_show_admin); }
+static void wifi_cb(lv_event_t *) { ui_admin_prompt(ui_show_wifi); }
+static void pending_cb(lv_event_t *) { ui_show_pending(); }
 
 void ui_show_login() {
   lv_obj_t *scr = ui_screen_create();
@@ -227,8 +247,20 @@ void ui_show_login() {
   lv_obj_align(s_sheet_lbl, LV_ALIGN_TOP_LEFT, 380, HEADER_H + 322);
 
   s_footer = ui_footer(scr);
-  ui_btn(s_footer, LV_SYMBOL_LIST "  SETUP", COL_NEUTRAL, 200, BTN_H, setup_cb, nullptr);
-  ui_btn(s_footer, LV_SYMBOL_SETTINGS "  ADMIN", COL_HEADER, 200, BTN_H, admin_cb, nullptr);
+  ui_btn(s_footer, LV_SYMBOL_LIST "  SETUP", COL_NEUTRAL, 180, BTN_H, setup_cb, nullptr);
+  ui_btn(s_footer, LV_SYMBOL_WIFI "  WIFI", COL_NEUTRAL, 180, BTN_H, wifi_cb, nullptr);
+  lv_obj_t *pb = ui_btn(s_footer, LV_SYMBOL_UPLOAD "  PENDING", COL_NEUTRAL, 200, BTN_H, pending_cb, nullptr);
+  lv_obj_align(lv_obj_get_child(pb, 0), LV_ALIGN_CENTER, -20, 0);
+  s_badge = lv_label_create(pb);
+  lv_obj_set_style_bg_opa(s_badge, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(s_badge, COL_RED, 0);
+  lv_obj_set_style_text_color(s_badge, COL_ON_DARK, 0);
+  lv_obj_set_style_radius(s_badge, 12, 0);
+  lv_obj_set_style_pad_hor(s_badge, 8, 0);
+  lv_obj_set_style_pad_ver(s_badge, 1, 0);
+  lv_obj_align(s_badge, LV_ALIGN_RIGHT_MID, -6, 0);
+  lv_obj_add_flag(s_badge, LV_OBJ_FLAG_HIDDEN);
+  ui_btn(s_footer, LV_SYMBOL_SETTINGS "  ADMIN", COL_HEADER, 180, BTN_H, admin_cb, nullptr);
 
   s_kb = ui_text_keyboard(scr, KB_H);
 

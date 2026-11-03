@@ -10,7 +10,7 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 |---|---|
 | UI: all screens, keyboard, 5-channel test table | ✅ this build |
 | Test sequence (staggered start, stop at first fail, -NA- logging) | ✅ runs against simulated hardware |
-| WiFi (credentials entered on the Admin screen) | ✅ this build |
+| WiFi: up to 5 saved networks (WIFI page), retried every 15 s | ✅ this build |
 | Google Sheets (specs, operators, results upload, offline queue) | ✅ needs `include/secrets.h` |
 | I²C link to the ESP32-S3 sub-board | ⏳ after the parts arrive |
 
@@ -53,7 +53,13 @@ INA219 or sub-board is wired. The header shows `SIM` while the simulation is act
 6. **HOME** goes back to the model page for the next batch. If the batch was not saved it asks
    first ("Google Sheet not synced"): **OK, SKIP** throws the results away, **CANCEL** stays on the page.
 7. While a channel rests between cycles its Status shows **WAIT**, and **RUN** again when the next cycle starts.
-8. **ADMIN** (password `100100`): enter WiFi credentials, toggle relays manually, view system info.
+8. **Retest:** a finished channel (PASS / FAIL / ABORT) shows ↻ on its CH header. Tap it to run that
+   channel again from cycle 1; the others keep going. Only the newest result is saved. Not after SAVE.
+9. **WIFI** (login screen, password `100100`): scan, connect to a network with its password, or FORGET a
+   saved one. Up to 5 are saved; while WiFi is down the panel tries them every 15 s, forever.
+10. **PENDING** (login screen): results saved on the panel but not in the Google Sheet yet. The badge
+   shows how many; rows disappear as they upload. **UPLOAD NOW** tries straight away.
+11. **ADMIN** (password `100100`): toggle relays manually, view system info.
 
 Saved rows are uploaded straight from RAM; only if that fails are they kept in flash and retried automatically; Setup → Status shows the Sheets state. While the rig is simulated (`SIM` in the header), the uploaded rows are simulated data too.
 
@@ -91,7 +97,9 @@ hmi
         ├── ui_model.cpp  model + 5 serials + keyboard
         ├── ui_test.cpp   5-channel result table
         ├── ui_setup.cpp  specs / operators / status (view only)
-        └── ui_admin.cpp  password, WiFi, manual relay test, system
+        ├── ui_wifi.cpp   WiFi networks: scan, connect, forget
+        ├── ui_pending.cpp results not in the Google Sheet yet
+        └── ui_admin.cpp  password, manual relay test, system
 ```
 
 To change colours or text sizes, edit `src/ui/ui_theme.h`. Light theme: black bars with yellow

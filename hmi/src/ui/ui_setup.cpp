@@ -123,7 +123,7 @@ static void refresh_status() {
                         "Clock:          %s\n"
                         "Test rig:       %s\n"
                         "Firmware:       " FW_VERSION,
-                        ssid[0] ? ssid : "(not set - see Admin)", net_connected() ? "connected" : "not connected",
+                        ssid[0] ? ssid : "(not set - see WIFI)", net_connected() ? "connected" : "not connected",
                         net_rssi(), ip, gs, last, gsheets_pending_count(), now,
                         rig_txt);
 }

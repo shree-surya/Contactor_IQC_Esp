@@ -55,6 +55,10 @@ void rig_tick();  // call from loop()
 void rig_reset(const bool enabled[NUM_CH]);  // clear views before a batch
 void rig_start(const ModelSpec *spec, const bool enabled[NUM_CH]);
 void rig_stop_all();
+// Runs one finished channel (PASS / FAIL / ABORTED) again from cycle 1. Its
+// earlier result is dropped; only the new one is kept for SAVE.
+bool rig_can_retest(int ch);
+bool rig_retest(int ch);
 bool rig_running();
 bool rig_is_simulated();
 bool rig_hw_ok();            // rig board connected (always true in simulation)

@@ -36,6 +36,7 @@ void setup() {
 }
 
 void loop() {
+  net_tick(millis());
   rig_tick();
   gsheets_set_hold(rig_running());
 

@@ -5,10 +5,12 @@
 // Screen flow:
 //   Login -> Model & Serials -> Test -> (SAVE, HOME) -> Model & Serials
 //   Login -> Setup (view specs / operators / status)
-//   Login -> Admin (password) -> WiFi / Manual relay / System
+//   Login -> WiFi Networks (admin password): scan, connect, forget
+//   Login -> Pending Uploads (results not in the Google Sheet yet)
+//   Login -> Admin (password) -> Manual relay / System
 void ui_init();
 
-enum UiScreen { UI_LOGIN, UI_MODEL, UI_TEST, UI_SETUP, UI_ADMIN };
+enum UiScreen { UI_LOGIN, UI_MODEL, UI_TEST, UI_SETUP, UI_ADMIN, UI_WIFI, UI_PENDING };
 void ui_set_current(UiScreen s);
 
 // Newly synced specs/operators: may they be applied now, and refresh after
@@ -20,8 +22,10 @@ void ui_show_model();
 void ui_show_test();
 void ui_show_setup(void (*back)());
 void ui_setup_refresh();
-void ui_admin_prompt();
+void ui_admin_prompt(void (*on_ok)());  // admin password, then on_ok()
 void ui_show_admin();
+void ui_show_wifi();
+void ui_show_pending();
 
 // --- shared helpers (ui_common.cpp) ---
 lv_obj_t *ui_screen_create();

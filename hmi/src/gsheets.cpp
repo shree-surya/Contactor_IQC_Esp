@@ -718,6 +718,51 @@ int gsheets_pending_count() {
   return s_pending + s_ramN;
 }
 
+// One queued line -> PendingRow (see row_line for the column order)
+static bool parse_pending(const String &line, PendingRow &p) {
+  JsonDocument doc;
+  if (deserializeJson(doc, line) || !doc.is<JsonArray>()) return false;
+  JsonArray a = doc.as<JsonArray>();
+  auto txt = [&](int i, char *dst, size_t n) {
+    const char *s = a[i] | "";
+    if (*s == '\'') s++;  // text marker for Sheets
+    strlcpy(dst, s, n);
+  };
+  memset(&p, 0, sizeof(p));
+  txt(1, p.serial, sizeof(p.serial));
+  txt(2, p.ts, sizeof(p.ts));
+  txt(3, p.op, sizeof(p.op));
+  txt(4, p.model, sizeof(p.model));
+  p.ch = (uint8_t)atoi(a[5] | "0");
+  txt(6, p.overall, sizeof(p.overall));
+  txt(7, p.failStep, sizeof(p.failStep));
+  return true;
+}
+
+int gsheets_pending_rows(PendingRow *out, int max, int skip) {
+  Lock l;
+  int n = 0;
+  File f = LittleFS.open(QUEUE_FILE, "r");  // flash rows are older than the RAM rows
+  while (f && f.available() && n < max) {
+    String line = f.readStringUntil('\n');
+    if (line.length() <= 1) continue;
+    if (skip > 0) {
+      skip--;
+      continue;
+    }
+    if (parse_pending(line, out[n])) n++;
+  }
+  if (f) f.close();
+  for (int i = 0; i < s_ramN && n < max; i++) {
+    if (skip > 0) {
+      skip--;
+      continue;
+    }
+    if (parse_pending(s_ram[i], out[n])) n++;
+  }
+  return n;
+}
+
 bool gsheets_configured() { return GS_CONFIGURED; }
 
 void gsheets_status(char *buf, size_t len) {

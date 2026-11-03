@@ -80,8 +80,12 @@ void hw_begin() {
 void hw_poll(uint32_t now) {
   if (now - s_lastPoll < RIG_POLL_MS) return;
   s_lastPoll = now;
+  bool wasSynced = s_synced;
   if (read_status()) {
     s_lastOk = now;
+    // (Re)connected: send our relay state, so a rig board that powered up
+    // with relays on is switched off at once (all OFF after a panel boot)
+    if (!wasSynced) send_cmd(0);
   } else {
     s_errors++;
     if (now - s_lastOk > 1000) s_synced = false;  // re-align counters after a restart

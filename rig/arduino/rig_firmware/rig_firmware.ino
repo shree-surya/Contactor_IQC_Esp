@@ -25,6 +25,7 @@
 // (bench use only), 0 = all relays off
 
 #include <Wire.h>
+#include "driver/gpio.h"
 
 // ---------------- settings ----------------
 #define NCH 5
@@ -158,9 +159,14 @@ void onLinkRequest() {
 
 // ---------------- main ----------------
 void setup() {
+  // Relays OFF from the first instant. The output latch is set HIGH in the
+  // chip's register before the pin becomes an output: Arduino's digitalWrite()
+  // is ignored on a pin that is not an output yet (ESP32 core 3.x), so the pin
+  // would come up LOW = all relays ON.
   for (int i = 0; i < NCH; i++) {
-    digitalWrite(RELAY_PIN[i], HIGH);  // OFF before becoming an output
+    gpio_set_level((gpio_num_t)RELAY_PIN[i], 1);
     pinMode(RELAY_PIN[i], OUTPUT);
+    digitalWrite(RELAY_PIN[i], HIGH);
   }
   for (int i = 0; i < NCH; i++) pinMode(FB_PIN[i], INPUT_PULLUP);
   Serial.begin(115200);

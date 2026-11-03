@@ -33,6 +33,18 @@ bool gsheets_has_new_data();
 void gsheets_apply_new_data();
 
 int gsheets_pending_count();
+
+struct PendingRow {
+  char serial[SERIAL_MAX_LEN + 1];
+  char ts[24];
+  char op[NAME_MAX_LEN + 1];
+  char model[NAME_MAX_LEN + 1];
+  uint8_t ch;
+  char overall[10];
+  char failStep[24];
+};
+// Rows saved on the panel but not in the Sheet yet, oldest first, after skipping the first `skip`
+int gsheets_pending_rows(PendingRow *out, int max, int skip);
 bool gsheets_configured();
 void gsheets_status(char *buf, size_t len);  // e.g. "OK", "Waiting for WiFi", "Error: ..."
 void gsheets_last_sync(char *buf, size_t len);
