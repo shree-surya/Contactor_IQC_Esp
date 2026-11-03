@@ -9,16 +9,16 @@
 // retrying the saved networks on its own (net.cpp).
 // ---------------------------------------------------------------------------
 
-static const int MAX_ROWS = NET_MAX_SCAN + NET_MAX_SAVED;
-static const lv_coord_t LIST_W = 470, LIST_H = 300, ROW_H = 52;
-static const lv_coord_t PANEL_X = 494, PANEL_W = 294;
+static const int WIFI_MAX_ROWS = NET_MAX_SCAN + NET_MAX_SAVED;
+static const lv_coord_t WIFI_LIST_W = 470, WIFI_LIST_H = 300, WIFI_ROW_H = 52;
+static const lv_coord_t WIFI_PANEL_X = 494, WIFI_PANEL_W = 294;
 
 static lv_obj_t *s_list, *s_panel_name, *s_panel_info, *s_pass_lbl, *s_pass_ta, *s_eye_lbl;
 static lv_obj_t *s_btn_connect, *s_btn_forget, *s_btn_scan, *s_status_lbl, *s_kb;
 static lv_obj_t *s_forget_ov = nullptr;
 static lv_timer_t *s_timer = nullptr;
 
-static char s_rowSsid[MAX_ROWS][33];
+static char s_rowSsid[WIFI_MAX_ROWS][33];
 static int s_rows = 0;
 static char s_sel[33] = "";
 static char s_sig[160] = "";  // what the list currently shows, to rebuild only on change
@@ -85,14 +85,14 @@ static void build_list() {
   lv_obj_clean(s_list);
   s_rows = 0;
   auto add_row = [&](const char *ssid, int rssi, bool inRange) {
-    if (s_rows >= MAX_ROWS) return;
+    if (s_rows >= WIFI_MAX_ROWS) return;
     int idx = s_rows++;
     strlcpy(s_rowSsid[idx], ssid, sizeof(s_rowSsid[idx]));
     bool sel = strcmp(ssid, s_sel) == 0;
 
     lv_obj_t *row = lv_obj_create(s_list);
     lv_obj_remove_style_all(row);
-    lv_obj_set_size(row, lv_pct(100), ROW_H);
+    lv_obj_set_size(row, lv_pct(100), WIFI_ROW_H);
     lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(row, sel ? COL_RUN_BG : COL_CARD, 0);
     lv_obj_set_style_border_width(row, 1, 0);
@@ -301,7 +301,7 @@ void ui_show_wifi() {
   net_saved_ssid(s_sel, sizeof(s_sel));
 
   s_list = lv_obj_create(scr);
-  lv_obj_set_size(s_list, LIST_W, LIST_H);
+  lv_obj_set_size(s_list, WIFI_LIST_W, WIFI_LIST_H);
   lv_obj_set_pos(s_list, 12, HEADER_H + 10);
   lv_obj_set_style_pad_all(s_list, 0, 0);
   lv_obj_set_style_pad_row(s_list, 0, 0);
@@ -311,8 +311,8 @@ void ui_show_wifi() {
   lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
 
   lv_obj_t *p = lv_obj_create(scr);
-  lv_obj_set_size(p, PANEL_W, LIST_H);
-  lv_obj_set_pos(p, PANEL_X, HEADER_H + 10);
+  lv_obj_set_size(p, WIFI_PANEL_W, WIFI_LIST_H);
+  lv_obj_set_pos(p, WIFI_PANEL_X, HEADER_H + 10);
   lv_obj_set_style_bg_color(p, COL_CARD, 0);
   lv_obj_set_style_border_color(p, COL_BORDER, 0);
   lv_obj_set_style_pad_all(p, 12, 0);
@@ -320,13 +320,13 @@ void ui_show_wifi() {
 
   s_panel_name = lv_label_create(p);
   lv_label_set_long_mode(s_panel_name, LV_LABEL_LONG_DOT);
-  lv_obj_set_width(s_panel_name, PANEL_W - 26);
+  lv_obj_set_width(s_panel_name, WIFI_PANEL_W - 26);
   lv_obj_set_style_text_font(s_panel_name, FONT_L, 0);
   lv_obj_set_pos(s_panel_name, 0, 0);
 
   s_panel_info = lv_label_create(p);
   lv_label_set_long_mode(s_panel_info, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(s_panel_info, PANEL_W - 26);
+  lv_obj_set_width(s_panel_info, WIFI_PANEL_W - 26);
   lv_obj_set_pos(s_panel_info, 0, 32);
 
   s_pass_lbl = lv_label_create(p);
@@ -338,7 +338,7 @@ void ui_show_wifi() {
   lv_textarea_set_one_line(s_pass_ta, true);
   lv_textarea_set_password_mode(s_pass_ta, true);
   lv_textarea_set_max_length(s_pass_ta, 63);
-  lv_obj_set_width(s_pass_ta, PANEL_W - 26 - 58);
+  lv_obj_set_width(s_pass_ta, WIFI_PANEL_W - 26 - 58);
   lv_obj_set_pos(s_pass_ta, 0, 102);
   lv_obj_add_event_cb(s_pass_ta, pass_cb, LV_EVENT_ALL, nullptr);
 
@@ -347,15 +347,15 @@ void ui_show_wifi() {
   s_eye_lbl = lv_obj_get_child(eye, 0);
   lv_obj_align_to(eye, s_pass_ta, LV_ALIGN_OUT_RIGHT_MID, 8, 0);
 
-  s_btn_connect = ui_btn(p, LV_SYMBOL_WIFI " CONNECT", COL_OK, PANEL_W - 26, 52, connect_cb, nullptr);
+  s_btn_connect = ui_btn(p, LV_SYMBOL_WIFI " CONNECT", COL_OK, WIFI_PANEL_W - 26, 52, connect_cb, nullptr);
   lv_obj_set_pos(s_btn_connect, 0, 166);
-  s_btn_forget = ui_btn(p, LV_SYMBOL_CLOSE " FORGET", COL_FAIL, PANEL_W - 26, 52, forget_cb, nullptr);
+  s_btn_forget = ui_btn(p, LV_SYMBOL_CLOSE " FORGET", COL_FAIL, WIFI_PANEL_W - 26, 52, forget_cb, nullptr);
   lv_obj_set_pos(s_btn_forget, 0, 228);
 
   s_status_lbl = lv_label_create(scr);
   lv_label_set_text(s_status_lbl, "");
   lv_obj_set_style_text_color(s_status_lbl, COL_MUTED, 0);
-  lv_obj_set_pos(s_status_lbl, 14, HEADER_H + LIST_H + 18);
+  lv_obj_set_pos(s_status_lbl, 14, HEADER_H + WIFI_LIST_H + 18);
 
   lv_obj_t *f = ui_footer(scr);
   ui_btn(f, LV_SYMBOL_LEFT " BACK", COL_NEUTRAL, 200, BTN_H, back_cb, nullptr);
