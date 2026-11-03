@@ -11,7 +11,7 @@ for 1.5 s, all relays switch off.
 | Sensors CH1..CH5 (0x40, 0x41, 0x44, 0x45, **0x42**) | SDA **GPIO 8**, SCL **GPIO 9**, 3V3, GND |
 | Link to the HMI panel | SDA **GPIO 17**, SCL **GPIO 18**, GND |
 | Relays IN1..IN5 (LOW = ON) | GPIO **4, 5, 6, 7, 15** |
-| Continuity CH1..CH5 (main terminals) | GPIO **1, 2, 10, 11, 12** (to terminal A; terminal B to GND) |
+| Continuity CH1..CH5 (main terminals) | GPIO **1, 2, 13, 11, 12** (to terminal A; terminal B to GND) |
 
 CH5 must be at **0x42** on GPIO 8/9 (A0 wired to SDA), because GPIO 17/18 are
 now the HMI link. Arduino IDE: ESP32S3 Dev Module, USB CDC On Boot: Enabled,

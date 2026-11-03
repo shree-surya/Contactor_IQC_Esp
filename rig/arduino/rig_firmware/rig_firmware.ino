@@ -15,7 +15,7 @@
 //                     CH5 0x42 (A0 wired to SDA)
 //   HMI link (bus B): GPIO 17 = SDA, GPIO 18 = SCL, GND  -> CrowPanel I2C header
 //   Relays IN1..IN5:  GPIO 4, 5, 6, 7, 15   (LOW = relay ON)
-//   Continuity CH1..CH5: GPIO 1, 2, 10, 11, 12. Main terminal A to the GPIO,
+//   Continuity CH1..CH5: GPIO 1, 2, 13, 11, 12. Main terminal A to the GPIO,
 //                     main terminal B to GND (internal pull-up, no resistor).
 //                     Terminals shorted (contactor ON) = LOW = CLOSE. If noise
 //                     gives false readings, add 2.2k from the GPIO to 3V3.
@@ -39,7 +39,7 @@
 
 const uint8_t SENS_ADDR[NCH] = {0x40, 0x41, 0x44, 0x45, 0x42};
 const int RELAY_PIN[NCH] = {4, 5, 6, 7, 15};
-const int FB_PIN[NCH] = {1, 2, 10, 11, 12};
+const int FB_PIN[NCH] = {1, 2, 13, 11, 12};
 #define FB_DEBOUNCE_MS 5      // contact must be stable this long to change state
 
 // INA219: 16 V, +-320 mV, shunt only, 12-bit (532 us), continuous
