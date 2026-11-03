@@ -240,11 +240,11 @@ void ui_show_login() {
   lv_obj_set_style_text_font(lv_obj_get_child(s_btn, 0), FONT_L, 0);
   lv_obj_align(s_btn, LV_ALIGN_BOTTOM_MID, 0, 0);
 
-  // WiFi + Google Sheet status under the card
+  // WiFi + Google Sheet status under the card, one per line (texts vary in length)
   s_wifi_lbl = lv_label_create(scr);
-  lv_obj_align(s_wifi_lbl, LV_ALIGN_TOP_LEFT, 120, HEADER_H + 322);
+  lv_obj_set_pos(s_wifi_lbl, 124, HEADER_H + 320);
   s_sheet_lbl = lv_label_create(scr);
-  lv_obj_align(s_sheet_lbl, LV_ALIGN_TOP_LEFT, 380, HEADER_H + 322);
+  lv_obj_set_pos(s_sheet_lbl, 124, HEADER_H + 342);
 
   s_footer = ui_footer(scr);
   ui_btn(s_footer, LV_SYMBOL_LIST "  SETUP", COL_NEUTRAL, 180, BTN_H, setup_cb, nullptr);
